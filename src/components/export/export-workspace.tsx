@@ -24,6 +24,7 @@ import {
   optionsForTipoCostoGasto,
   optionsForTipoOperacion,
 } from "@/lib/dte/qrt-cascade";
+import { previousPeriod } from "@/lib/period";
 import { ClassificationSelect } from "@/components/export/classification-select";
 import { BrandPanel } from "@/components/brand-panel";
 import { Button } from "@/components/ui/button";
@@ -106,10 +107,10 @@ export function ExportWorkspace({
   companies: Company[];
   initialDocs: DteDocument[];
 }) {
-  const now = new Date();
+  const initialPeriod = previousPeriod();
   const [companyId, setCompanyId] = useState(companies[0]?.id ?? "");
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(initialPeriod.year);
+  const [month, setMonth] = useState(initialPeriod.month);
   const [files, setFiles] = useState<FileList | null>(null);
   const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -379,7 +380,7 @@ export function ExportWorkspace({
       <BrandPanel
         eyebrow="Contexto"
         title="Periodo y empresa"
-        description="Ventana: periodo seleccionado + 2 meses anteriores (3 periodos). Fuera de ventana no se guarda."
+        description="Periodo a declarar (por defecto el mes anterior). Ventana: ese periodo + 2 meses anteriores."
       >
         <div className="grid gap-4 sm:grid-cols-3">
           <Field id="company" label="Empresa">
