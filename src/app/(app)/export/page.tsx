@@ -32,20 +32,23 @@ export default async function ExportPage() {
           .from("dte_documents")
           .select("*")
           .in("company_id", companyIds)
-          .order("fec_emi", { ascending: false })
+          .order("fec_emi", { ascending: true })
       : { data: [] as DteDocument[] };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
+      <header className="space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-teal-700">
+          Anexo Compras · F-07
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-stone-900">
           Carga y export
         </h1>
-        <p className="text-muted-foreground">
-          Valida DTE JSON, configura Q–T (F-07) para tipos 03/05/06 y descarga
-          CSV + Excel CRED/FACT de control.
+        <p className="max-w-2xl text-sm leading-relaxed text-stone-600">
+          Valida DTE JSON, clasifica Q–T con cascada F-07 (nombres en UI,
+          códigos en CSV) y descarga Anexo + Excel CRED/FACT.
         </p>
-      </div>
+      </header>
       <ExportWorkspace
         companies={(companies ?? []) as Company[]}
         initialDocs={(docs ?? []) as DteDocument[]}

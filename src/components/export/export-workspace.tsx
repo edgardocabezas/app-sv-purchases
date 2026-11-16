@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import {
+  useMemo,
+  useState,
+  useTransition,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   uploadDteFiles,
   bulkUpdateClassification,
@@ -18,28 +24,23 @@ import {
   type ExportClassification,
 } from "@/lib/dte/types";
 import {
-  CLASIFICACION_OPTIONS,
-  SECTOR_OPTIONS,
-  TIPO_COSTO_GASTO_OPTIONS,
-  TIPO_OPERACION_OPTIONS,
-} from "@/lib/dte/classification-options";
+  applyClassificationPatch,
+  optionsForClasificacion,
+  optionsForSector,
+  optionsForTipoCostoGasto,
+  optionsForTipoOperacion,
+} from "@/lib/dte/qrt-cascade";
 import { ClassificationSelect } from "@/components/export/classification-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -51,6 +52,8 @@ type UploadResult = {
   message: string;
   tipoDte?: string;
 };
+
+type DateSort = "asc" | "desc" | "none";
 
 function downloadBase64Excel(filename: string, base64: string) {
   const binary = atob(base64);
@@ -76,6 +79,75 @@ function classificationFromDoc(d: DteDocument): ExportClassification {
   };
 }
 
+function money(n: number): string {
+  return Number(n).toFixed(2);
+}
+
+function Section({
+  eyebrow,
+  title,
+  description,
+  children,
+  actions,
+}: {
+  eyebrow?: string;
+  title: string;
+  description?: string;
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[var(--export-border)] bg-[var(--export-panel)]/90 shadow-[0_1px_0_rgba(15,40,35,0.04)] backdrop-blur-sm">
+      <div className="flex flex-col gap-3 border-b border-[var(--export-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.55),transparent)] px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          {eyebrow ? (
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--export-accent)]">
+              {eyebrow}
+            </p>
+          ) : null}
+          <h2 className="text-lg font-semibold tracking-tight text-[var(--export-ink)]">
+            {title}
+          </h2>
+          {description ? (
+            <p className="max-w-3xl text-sm leading-relaxed text-[var(--export-muted)]">
+              {description}
+            </p>
+          ) : null}
+        </div>
+        {actions ? (
+          <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>
+        ) : null}
+      </div>
+      <div className="px-5 py-5">{children}</div>
+    </section>
+  );
+}
+
+function Field({
+  id,
+  label,
+  children,
+}: {
+  id: string;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label
+        htmlFor={id}
+        className="text-xs font-medium uppercase tracking-wide text-[var(--export-muted)]"
+      >
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+const selectClass =
+  "flex h-9 w-full rounded-lg border border-[var(--export-border)] bg-white/80 px-3 py-1 text-sm text-[var(--export-ink)] shadow-sm outline-none transition focus-visible:border-[var(--export-accent)] focus-visible:ring-2 focus-visible:ring-[var(--export-accent)]/25";
+
 export function ExportWorkspace({
   companies,
   initialDocs,
@@ -94,12 +166,14 @@ export function ExportWorkspace({
   const [docs, setDocs] = useState(initialDocs);
   const [pending, startTransition] = useTransition();
 
-  const [bulkQ, setBulkQ] = useState(DEFAULT_CLASSIFICATION.tipoOperacion);
-  const [bulkR, setBulkR] = useState(DEFAULT_CLASSIFICATION.clasificacion);
-  const [bulkS, setBulkS] = useState(DEFAULT_CLASSIFICATION.sector);
-  const [bulkT, setBulkT] = useState(DEFAULT_CLASSIFICATION.tipoCostoGasto);
+  const [bulk, setBulk] = useState<ExportClassification>(DEFAULT_CLASSIFICATION);
 
-  const filtered = useMemo(
+  const [tipoFilter, setTipoFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [dateSort, setDateSort] = useState<DateSort>("asc");
+
+  const periodDocs = useMemo(
     () =>
       docs.filter(
         (d) =>
@@ -110,9 +184,75 @@ export function ExportWorkspace({
     [docs, companyId, year, month],
   );
 
+  const tipoOptions = useMemo(() => {
+    const set = new Set(periodDocs.map((d) => d.tipo_dte));
+    return Array.from(set).sort();
+  }, [periodDocs]);
+
+  const filtered = useMemo(() => {
+    let rows = periodDocs;
+    if (tipoFilter !== "all") {
+      rows = rows.filter((d) => d.tipo_dte === tipoFilter);
+    }
+    if (dateFrom) {
+      rows = rows.filter((d) => d.fec_emi >= dateFrom);
+    }
+    if (dateTo) {
+      rows = rows.filter((d) => d.fec_emi <= dateTo);
+    }
+    if (dateSort !== "none") {
+      const dir = dateSort === "asc" ? 1 : -1;
+      rows = [...rows].sort((a, b) => {
+        if (a.fec_emi === b.fec_emi) {
+          return a.codigo_generacion.localeCompare(b.codigo_generacion);
+        }
+        return a.fec_emi < b.fec_emi ? -dir : dir;
+      });
+    }
+    return rows;
+  }, [periodDocs, tipoFilter, dateFrom, dateTo, dateSort]);
+
   const exportable = filtered.filter((d) => isExportDteType(d.tipo_dte));
   const informative = filtered.filter((d) => !isExportDteType(d.tipo_dte));
+  const periodExportable = periodDocs.filter((d) => isExportDteType(d.tipo_dte));
   const qtZeroPeriod = year < 2024 || (year === 2024 && month < 2);
+
+  const totals = useMemo(() => {
+    return filtered.reduce(
+      (acc, d) => {
+        acc.gravada += Number(d.total_gravada) || 0;
+        acc.iva += Number(d.iva) || 0;
+        acc.total += Number(d.total_con_iva) || 0;
+        acc.exento += Number(d.exento) || 0;
+        return acc;
+      },
+      { gravada: 0, iva: 0, total: 0, exento: 0 },
+    );
+  }, [filtered]);
+
+  const bulkTOptions = useMemo(
+    () =>
+      optionsForTipoCostoGasto(
+        bulk.tipoOperacion,
+        bulk.clasificacion,
+        bulk.sector,
+      ),
+    [bulk.tipoOperacion, bulk.clasificacion, bulk.sector],
+  );
+
+  const filtersActive =
+    tipoFilter !== "all" || dateFrom !== "" || dateTo !== "" || dateSort !== "asc";
+
+  function clearFilters() {
+    setTipoFilter("all");
+    setDateFrom("");
+    setDateTo("");
+    setDateSort("asc");
+  }
+
+  function patchBulk(patch: Partial<ExportClassification>) {
+    setBulk((prev) => applyClassificationPatch(prev, patch));
+  }
 
   async function reloadDocs() {
     window.location.reload();
@@ -155,13 +295,8 @@ export function ExportWorkspace({
       );
       return;
     }
-    const classification: ExportClassification = {
-      tipoOperacion: bulkQ,
-      clasificacion: bulkR,
-      sector: bulkS,
-      tipoCostoGasto: bulkT,
-    };
-    const ids = exportable.map((d) => d.id);
+    const classification = applyClassificationPatch(bulk, {});
+    const ids = periodExportable.map((d) => d.id);
     startTransition(async () => {
       const result = await bulkUpdateClassification(ids, classification);
       if (result.error) {
@@ -171,8 +306,8 @@ export function ExportWorkspace({
       setInfo(
         `Clasificación Q–T aplicada a ${result.updated ?? ids.length} documentos.`,
       );
-      setDocs(
-        docs.map((d) =>
+      setDocs((prev) =>
+        prev.map((d) =>
           ids.includes(d.id)
             ? {
                 ...d,
@@ -192,10 +327,7 @@ export function ExportWorkspace({
     patch: Partial<ExportClassification>,
   ) {
     if (!isExportDteType(doc.tipo_dte) || qtZeroPeriod) return;
-    const next: ExportClassification = {
-      ...classificationFromDoc(doc),
-      ...patch,
-    };
+    const next = applyClassificationPatch(classificationFromDoc(doc), patch);
     setDocs((prev) =>
       prev.map((d) =>
         d.id === doc.id
@@ -283,34 +415,49 @@ export function ExportWorkspace({
     );
   }
 
+  const periodLabel = `${year}-${String(month).padStart(2, "0")}`;
+
   return (
-    <div className="space-y-6">
+    <div
+      className="export-surface relative space-y-6"
+      style={
+        {
+          "--export-ink": "#14231f",
+          "--export-muted": "#5b6f68",
+          "--export-accent": "#0f766e",
+          "--export-accent-soft": "#ccfbf1",
+          "--export-border": "#d7e3de",
+          "--export-panel": "#f7fbf9",
+          "--export-table-head": "#ecf4f1",
+        } as CSSProperties
+      }
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-8 -z-10 h-72 rounded-[2rem] bg-[radial-gradient(ellipse_at_top_left,rgba(15,118,110,0.14),transparent_55%),radial-gradient(ellipse_at_top_right,rgba(20,60,50,0.08),transparent_45%),linear-gradient(180deg,rgba(236,244,241,0.9),transparent)]"
+      />
+
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
       {info ? (
-        <Alert>
+        <Alert className="border-[var(--export-border)] bg-white/70">
           <AlertDescription>{info}</AlertDescription>
         </Alert>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Periodo y empresa</CardTitle>
-          <CardDescription>
-            Ventana: periodo seleccionado + 2 meses anteriores (3 periodos;
-            diff 0..2). Fuera de ventana no se guarda (exportables ni
-            informativos).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="company">Empresa</Label>
+      <Section
+        eyebrow="Contexto"
+        title="Periodo y empresa"
+        description="Ventana: periodo seleccionado + 2 meses anteriores (3 periodos). Fuera de ventana no se guarda."
+      >
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field id="company" label="Empresa">
             <select
               id="company"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+              className={selectClass}
               value={companyId}
               onChange={(e) => setCompanyId(e.target.value)}
             >
@@ -320,9 +467,8 @@ export function ExportWorkspace({
                 </option>
               ))}
             </select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="year">Año</Label>
+          </Field>
+          <Field id="year" label="Año">
             <Input
               id="year"
               type="number"
@@ -330,10 +476,10 @@ export function ExportWorkspace({
               max={2100}
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
+              className="h-9 rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="month">Mes</Label>
+          </Field>
+          <Field id="month" label="Mes">
             <Input
               id="month"
               type="number"
@@ -341,181 +487,276 @@ export function ExportWorkspace({
               max={12}
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
+              className="h-9 rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
             />
-          </div>
-        </CardContent>
-      </Card>
+          </Field>
+        </div>
+        <p className="mt-4 text-xs text-[var(--export-muted)]">
+          Periodo activo:{" "}
+          <span className="font-medium text-[var(--export-ink)]">
+            {periodLabel}
+          </span>{" "}
+          · {periodDocs.length} documentos cargados
+        </p>
+      </Section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Carga multi-JSON</CardTitle>
-          <CardDescription>
-            Persiste cualquier tipoDte parseable (01/03/05/06/07 y otros). CSV +
-            Excel CRED: 03/05/06. Excel FACT: 01/07/otros. Duplicados por código
-            de generación. NC (05) resta; ND (06) suma.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Input
-            type="file"
-            accept=".json,application/json"
-            multiple
-            onChange={(e) => setFiles(e.target.files)}
-          />
-          <Button onClick={onUpload} disabled={pending}>
+      <Section
+        eyebrow="Ingesta"
+        title="Carga multi-JSON"
+        description="Persiste cualquier tipoDte parseable. CSV + Excel CRED: 03/05/06. Excel FACT: 01/07/otros. NC (05) resta; ND (06) suma."
+        actions={
+          <Button
+            onClick={onUpload}
+            disabled={pending}
+            className="bg-[var(--export-accent)] text-white hover:bg-[var(--export-accent)]/90"
+          >
             {pending ? "Procesando…" : "Subir y validar"}
           </Button>
-          {uploadResults.length > 0 ? (
-            <div className="space-y-2">
-              {uploadResults.map((r, i) => (
-                <div
-                  key={`${r.filename}-${i}`}
-                  className="flex flex-wrap items-center gap-2 text-sm"
+        }
+      >
+        <Input
+          type="file"
+          accept=".json,application/json"
+          multiple
+          onChange={(e) => setFiles(e.target.files)}
+          className="max-w-xl cursor-pointer rounded-lg border-[var(--export-border)] bg-white/80 file:mr-3 file:rounded-md file:border-0 file:bg-[var(--export-accent-soft)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[var(--export-accent)]"
+        />
+        {uploadResults.length > 0 ? (
+          <div className="mt-4 space-y-2 rounded-xl border border-[var(--export-border)] bg-white/60 p-3">
+            {uploadResults.map((r, i) => (
+              <div
+                key={`${r.filename}-${i}`}
+                className="flex flex-wrap items-center gap-2 text-sm"
+              >
+                <Badge
+                  variant={
+                    r.status === "saved"
+                      ? "default"
+                      : r.status === "informative"
+                        ? "secondary"
+                        : "outline"
+                  }
                 >
-                  <Badge
-                    variant={
-                      r.status === "saved"
-                        ? "default"
-                        : r.status === "informative"
-                          ? "secondary"
-                          : "outline"
-                    }
-                  >
-                    {r.status}
-                  </Badge>
-                  <span className="font-medium">{r.filename}</span>
-                  <span className="text-muted-foreground">{r.message}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuración Q / R / S / T (tipos 03/05/06)</CardTitle>
-          <CardDescription>
-            Catálogo F-07 V14 (código + nombre). Defaults Licuadora: Q=1, R=2,
-            S=2, T=2. U siempre = 3. Periodos &lt; febrero 2024 exportan Q–T como
-            0.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {qtZeroPeriod ? (
-            <Alert>
-              <AlertDescription>
-                Periodo anterior a febrero 2024: al exportar, Q–T serán 0
-                automáticamente. La asignación masiva/individual está
-                deshabilitada.
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-2">
-              <Label htmlFor="bulk-q">Q Tipo de Operación</Label>
-              <ClassificationSelect
-                id="bulk-q"
-                value={bulkQ}
-                options={TIPO_OPERACION_OPTIONS}
-                onChange={setBulkQ}
-                disabled={qtZeroPeriod}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bulk-r">R Clasificación</Label>
-              <ClassificationSelect
-                id="bulk-r"
-                value={bulkR}
-                options={CLASIFICACION_OPTIONS}
-                onChange={setBulkR}
-                disabled={qtZeroPeriod}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bulk-s">S Sector</Label>
-              <ClassificationSelect
-                id="bulk-s"
-                value={bulkS}
-                options={SECTOR_OPTIONS}
-                onChange={setBulkS}
-                disabled={qtZeroPeriod}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bulk-t">T Tipo de Costo/Gasto</Label>
-              <ClassificationSelect
-                id="bulk-t"
-                value={bulkT}
-                options={TIPO_COSTO_GASTO_OPTIONS}
-                onChange={setBulkT}
-                disabled={qtZeroPeriod}
-              />
-            </div>
+                  {r.status}
+                </Badge>
+                <span className="font-medium">{r.filename}</span>
+                <span className="text-[var(--export-muted)]">{r.message}</span>
+              </div>
+            ))}
           </div>
+        ) : null}
+      </Section>
+
+      <Section
+        eyebrow="F-07"
+        title="Clasificación Q / R / S / T"
+        description="Nombres en pantalla; códigos numéricos en DB/CSV. Cascada Gravada según manual pág. 21. Defaults: Gravada / Gasto / Comercio / Gastos de Administración. Periodos &lt; feb 2024 exportan Q–T como 0."
+        actions={
           <Button
             variant="secondary"
             onClick={onApplyClassification}
-            disabled={pending || exportable.length === 0 || qtZeroPeriod}
+            disabled={pending || periodExportable.length === 0 || qtZeroPeriod}
           >
-            Aplicar a {exportable.length} filas 03/05/06
+            Aplicar a {periodExportable.length} filas 03/05/06
           </Button>
-        </CardContent>
-      </Card>
+        }
+      >
+        {qtZeroPeriod ? (
+          <Alert className="mb-4 border-amber-200 bg-amber-50/80">
+            <AlertDescription>
+              Periodo anterior a febrero 2024: al exportar, Q–T serán 0
+              automáticamente. La asignación masiva/individual está
+              deshabilitada.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field id="bulk-q" label="Tipo de Operación">
+            <ClassificationSelect
+              id="bulk-q"
+              value={bulk.tipoOperacion}
+              options={optionsForTipoOperacion()}
+              onChange={(code) => patchBulk({ tipoOperacion: code })}
+              disabled={qtZeroPeriod}
+              className="rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+            />
+          </Field>
+          <Field id="bulk-r" label="Clasificación">
+            <ClassificationSelect
+              id="bulk-r"
+              value={bulk.clasificacion}
+              options={optionsForClasificacion()}
+              onChange={(code) => patchBulk({ clasificacion: code })}
+              disabled={qtZeroPeriod}
+              className="rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+            />
+          </Field>
+          <Field id="bulk-s" label="Sector">
+            <ClassificationSelect
+              id="bulk-s"
+              value={bulk.sector}
+              options={optionsForSector()}
+              onChange={(code) => patchBulk({ sector: code })}
+              disabled={qtZeroPeriod}
+              className="rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+            />
+          </Field>
+          <Field id="bulk-t" label="Tipo de Costo/Gasto">
+            <ClassificationSelect
+              id="bulk-t"
+              value={bulk.tipoCostoGasto}
+              options={bulkTOptions}
+              onChange={(code) => patchBulk({ tipoCostoGasto: code })}
+              disabled={qtZeroPeriod}
+              className="rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+            />
+          </Field>
+        </div>
+      </Section>
 
-      <Card>
-        <CardHeader className="space-y-3">
-          <div>
-            <CardTitle>Documentos del periodo</CardTitle>
-            <CardDescription>
-              {exportable.length} exportables (03/05/06) ·{" "}
-              {informative.length} informativos (01/07/otros)
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap gap-2">
+      <Section
+        eyebrow="Documentos"
+        title="Documentos del periodo"
+        description={`${exportable.length} exportables (03/05/06) · ${informative.length} informativos (01/07/otros) · orden por fecha`}
+        actions={
+          <>
             <Button
               onClick={onExportCsv}
-              disabled={pending || exportable.length === 0}
+              disabled={pending || periodExportable.length === 0}
+              className="bg-[var(--export-accent)] text-white hover:bg-[var(--export-accent)]/90"
             >
               Descargar CSV
             </Button>
             <Button
               variant="secondary"
               onClick={onExportCredExcel}
-              disabled={pending || exportable.length === 0}
+              disabled={pending || periodExportable.length === 0}
             >
-              Excel CRED (03/05/06)
+              Excel CRED
             </Button>
             <Button
               variant="secondary"
               onClick={onExportFactExcel}
-              disabled={pending || informative.length === 0}
+              disabled={
+                pending ||
+                periodDocs.filter((d) => !isExportDteType(d.tipo_dte)).length ===
+                  0
+              }
             >
-              Excel FACT (01/otros)
+              Excel FACT
+            </Button>
+          </>
+        }
+      >
+        <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[var(--export-border)] bg-[linear-gradient(135deg,rgba(204,251,241,0.35),rgba(255,255,255,0.7))] p-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <Field id="filter-tipo" label="Tipo de documento">
+            <select
+              id="filter-tipo"
+              className={`${selectClass} min-w-[8rem]`}
+              value={tipoFilter}
+              onChange={(e) => setTipoFilter(e.target.value)}
+            >
+              <option value="all">Todos</option>
+              {tipoOptions.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field id="date-from" label="Fecha desde">
+            <Input
+              id="date-from"
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-9 min-w-[10rem] rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+            />
+          </Field>
+          <Field id="date-to" label="Fecha hasta">
+            <Input
+              id="date-to"
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-9 min-w-[10rem] rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+            />
+          </Field>
+          <Field id="date-sort" label="Orden fecha">
+            <select
+              id="date-sort"
+              className={`${selectClass} min-w-[9rem]`}
+              value={dateSort}
+              onChange={(e) => setDateSort(e.target.value as DateSort)}
+            >
+              <option value="asc">Ascendente</option>
+              <option value="desc">Descendente</option>
+              <option value="none">Sin orden</option>
+            </select>
+          </Field>
+          <div className="flex items-end pb-0.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={clearFilters}
+              disabled={!filtersActive}
+            >
+              Limpiar filtros
             </Button>
           </div>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-[var(--export-border)] bg-white/75">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Código</TableHead>
-                <TableHead>Proveedor</TableHead>
-                <TableHead>Gravada</TableHead>
-                <TableHead>IVA</TableHead>
-                <TableHead>Q</TableHead>
-                <TableHead>R</TableHead>
-                <TableHead>S</TableHead>
-                <TableHead>T</TableHead>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="bg-[var(--export-table-head)]">
+                  Tipo
+                </TableHead>
+                <TableHead className="bg-[var(--export-table-head)]">
+                  Fecha
+                </TableHead>
+                <TableHead className="bg-[var(--export-table-head)]">
+                  Código
+                </TableHead>
+                <TableHead className="bg-[var(--export-table-head)]">
+                  Proveedor
+                </TableHead>
+                <TableHead className="bg-[var(--export-table-head)] text-right">
+                  Gravada
+                </TableHead>
+                <TableHead className="bg-[var(--export-table-head)] text-right">
+                  IVA
+                </TableHead>
+                <TableHead className="bg-[var(--export-table-head)] text-right">
+                  Total
+                </TableHead>
+                <TableHead className="bg-[var(--export-table-head)] text-right">
+                  Exento
+                </TableHead>
+                <TableHead className="bg-[var(--export-table-head)] min-w-[9rem]">
+                  Tipo de Operación
+                </TableHead>
+                <TableHead className="bg-[var(--export-table-head)] min-w-[8rem]">
+                  Clasificación
+                </TableHead>
+                <TableHead className="bg-[var(--export-table-head)] min-w-[9rem]">
+                  Sector
+                </TableHead>
+                <TableHead className="bg-[var(--export-table-head)] min-w-[11rem]">
+                  Tipo de Costo/Gasto
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-muted-foreground">
-                    Sin documentos para este periodo.
+                  <TableCell
+                    colSpan={12}
+                    className="py-10 text-center text-[var(--export-muted)]"
+                  >
+                    Sin documentos para este periodo o filtro.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -523,8 +764,16 @@ export function ExportWorkspace({
                   const canEditQt =
                     isExportDteType(d.tipo_dte) && !qtZeroPeriod;
                   const cls = classificationFromDoc(d);
+                  const tOptions = optionsForTipoCostoGasto(
+                    cls.tipoOperacion,
+                    cls.clasificacion,
+                    cls.sector,
+                  );
                   return (
-                    <TableRow key={d.id}>
+                    <TableRow
+                      key={d.id}
+                      className="border-[var(--export-border)]/70"
+                    >
                       <TableCell>
                         <Badge
                           variant={
@@ -536,24 +785,34 @@ export function ExportWorkspace({
                           {d.tipo_dte}
                         </Badge>
                       </TableCell>
-                      <TableCell>{d.fec_emi}</TableCell>
+                      <TableCell className="whitespace-nowrap tabular-nums">
+                        {d.fec_emi}
+                      </TableCell>
                       <TableCell className="max-w-[140px] truncate font-mono text-xs">
                         {d.codigo_generacion}
                       </TableCell>
                       <TableCell className="max-w-[180px] truncate">
                         {d.emisor_nombre}
                       </TableCell>
-                      <TableCell>
-                        {Number(d.total_gravada).toFixed(2)}
+                      <TableCell className="text-right tabular-nums">
+                        {money(d.total_gravada)}
                       </TableCell>
-                      <TableCell>{Number(d.iva).toFixed(2)}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {money(d.iva)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {money(d.total_con_iva)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {money(d.exento)}
+                      </TableCell>
                       {canEditQt ? (
                         <>
                           <TableCell>
                             <ClassificationSelect
                               compact
                               value={cls.tipoOperacion}
-                              options={TIPO_OPERACION_OPTIONS}
+                              options={optionsForTipoOperacion()}
                               disabled={pending}
                               onChange={(code) =>
                                 onRowClassificationChange(d, {
@@ -566,7 +825,7 @@ export function ExportWorkspace({
                             <ClassificationSelect
                               compact
                               value={cls.clasificacion}
-                              options={CLASIFICACION_OPTIONS}
+                              options={optionsForClasificacion()}
                               disabled={pending}
                               onChange={(code) =>
                                 onRowClassificationChange(d, {
@@ -579,7 +838,7 @@ export function ExportWorkspace({
                             <ClassificationSelect
                               compact
                               value={cls.sector}
-                              options={SECTOR_OPTIONS}
+                              options={optionsForSector()}
                               disabled={pending}
                               onChange={(code) =>
                                 onRowClassificationChange(d, { sector: code })
@@ -590,7 +849,7 @@ export function ExportWorkspace({
                             <ClassificationSelect
                               compact
                               value={cls.tipoCostoGasto}
-                              options={TIPO_COSTO_GASTO_OPTIONS}
+                              options={tOptions}
                               disabled={pending}
                               onChange={(code) =>
                                 onRowClassificationChange(d, {
@@ -602,10 +861,18 @@ export function ExportWorkspace({
                         </>
                       ) : (
                         <>
-                          <TableCell>{d.tipo_operacion ?? "—"}</TableCell>
-                          <TableCell>{d.clasificacion ?? "—"}</TableCell>
-                          <TableCell>{d.sector ?? "—"}</TableCell>
-                          <TableCell>{d.tipo_costo_gasto ?? "—"}</TableCell>
+                          <TableCell className="tabular-nums text-[var(--export-muted)]">
+                            {d.tipo_operacion ?? "—"}
+                          </TableCell>
+                          <TableCell className="tabular-nums text-[var(--export-muted)]">
+                            {d.clasificacion ?? "—"}
+                          </TableCell>
+                          <TableCell className="tabular-nums text-[var(--export-muted)]">
+                            {d.sector ?? "—"}
+                          </TableCell>
+                          <TableCell className="tabular-nums text-[var(--export-muted)]">
+                            {d.tipo_costo_gasto ?? "—"}
+                          </TableCell>
                         </>
                       )}
                     </TableRow>
@@ -613,9 +880,34 @@ export function ExportWorkspace({
                 })
               )}
             </TableBody>
+            {filtered.length > 0 ? (
+              <TableFooter>
+                <TableRow className="border-t-2 border-[var(--export-border)] bg-[var(--export-table-head)]/80 hover:bg-[var(--export-table-head)]/80">
+                  <TableCell
+                    colSpan={4}
+                    className="font-semibold text-[var(--export-ink)]"
+                  >
+                    Totales ({filtered.length} filas)
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {money(totals.gravada)}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {money(totals.iva)}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {money(totals.total)}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {money(totals.exento)}
+                  </TableCell>
+                  <TableCell colSpan={4} />
+                </TableRow>
+              </TableFooter>
+            ) : null}
           </Table>
-        </CardContent>
-      </Card>
+        </div>
+      </Section>
     </div>
   );
 }

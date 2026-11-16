@@ -12,6 +12,10 @@ import {
   PROCESSING_WINDOW_MONTHS_BACK,
   isExportDteType,
 } from "@/lib/dte/types";
+import {
+  coerceClassification,
+  isValidClassification,
+} from "@/lib/dte/qrt-cascade";
 
 export type UploadResultItem = {
   filename: string;
@@ -176,14 +180,22 @@ export async function updateDocumentClassification(
   documentId: string,
   classification: ExportClassification,
 ): Promise<{ error?: string }> {
+  const coerced = coerceClassification(classification);
+  if (!isValidClassification(coerced)) {
+    return {
+      error:
+        "Combinación Q–T inválida según cascada F-07 (manual pág. 21).",
+    };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("dte_documents")
     .update({
-      tipo_operacion: classification.tipoOperacion,
-      clasificacion: classification.clasificacion,
-      sector: classification.sector,
-      tipo_costo_gasto: classification.tipoCostoGasto,
+      tipo_operacion: coerced.tipoOperacion,
+      clasificacion: coerced.clasificacion,
+      sector: coerced.sector,
+      tipo_costo_gasto: coerced.tipoCostoGasto,
       updated_at: new Date().toISOString(),
     })
     .eq("id", documentId)
@@ -199,15 +211,24 @@ export async function bulkUpdateClassification(
   classification: ExportClassification,
 ): Promise<{ error?: string; updated?: number }> {
   if (documentIds.length === 0) return { updated: 0 };
+
+  const coerced = coerceClassification(classification);
+  if (!isValidClassification(coerced)) {
+    return {
+      error:
+        "Combinación Q–T inválida según cascada F-07 (manual pág. 21).",
+    };
+  }
+
   const supabase = await createClient();
   const { error, count } = await supabase
     .from("dte_documents")
     .update(
       {
-        tipo_operacion: classification.tipoOperacion,
-        clasificacion: classification.clasificacion,
-        sector: classification.sector,
-        tipo_costo_gasto: classification.tipoCostoGasto,
+        tipo_operacion: coerced.tipoOperacion,
+        clasificacion: coerced.clasificacion,
+        sector: coerced.sector,
+        tipo_costo_gasto: coerced.tipoCostoGasto,
         updated_at: new Date().toISOString(),
       },
       { count: "exact" },

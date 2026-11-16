@@ -60,8 +60,8 @@ Open [http://localhost:3000](http://localhost:3000).
 3. Open **Carga / Export**, pick year/month
 4. Upload one or more DTE `.json` files (any `tipoDte` — known or unexpected)
 5. Review duplicates / out-of-window / informative types
-6. Configure **Q / R / S / T** with labeled F-07 dropdowns (mass + per-row) for tipos `03`/`05`/`06` (defaults `1/2/2/2`; forced `0` when period &lt; February 2024)
-7. Download **CSV** + **Excel CRED** (`03/05/06`) + **Excel FACT** (`01` / `07` / other)
+6. Configure **Q / R / S / T** with name-only F-07 dropdowns (mass + per-row) for tipos `03`/`05`/`06` (defaults `1/2/2/2`; forced `0` when period &lt; February 2024). UI shows labels only; DB/CSV keep numeric codes. Gravada cascade follows manual page 21 (`src/lib/dte/qrt-cascade.ts`).
+7. Review **Documentos del periodo** (filter by tipo, date range, sort; Exento + money footer totals) and download **CSV** + **Excel CRED** (`03/05/06`) + **Excel FACT** (`01` / `07` / other)
 
 ## Locked behaviour
 
@@ -79,7 +79,9 @@ Open [http://localhost:3000](http://localhost:3000).
 | Column E | Prefer **NIT** (no dashes); if empty, **NRC** (no dashes, no zero-padding) |
 | Código generación | dashes stripped |
 | Money | text `0.00` (signed when needed), 2 decimals, max 10 chars |
-| Q–T before Feb 2024 | all `0`; from 2024-02 keep configured codes (UI shows code + name from F-07) |
+| Q–T before Feb 2024 | all `0`; from 2024-02 keep configured codes |
+| Q–T UI labels | **Names only** (no leading `1 `, `2 ` codes). Persist numeric codes in DB/CSV/Excel |
+| Q–T cascade (Gravada) | Manual F-07 p.21: Costo+Industria → T `4–7`; Costo+other sectors → T `4–5`; Gasto → T `1–3`. Invalid e.g. `1,1,4,1`; valid `1,1,4,5`. Upstream changes reset invalid T. Mass + per-row both enforce. |
 | Control Excel names | `YYYYMM - CONTROL CRED.xlsx` / `YYYYMM - CONTROL FACT.xlsx` |
 
 ## Scripts
@@ -94,7 +96,7 @@ npm run lint
 ## Project layout
 
 ```
-src/lib/dte/          # parse, window, tributos, Q–T option catalogs
+src/lib/dte/          # parse, window, tributos, Q–T option catalogs + cascade matrix
 src/lib/csv/          # signed amounts, row + CSV builder
 src/lib/excel/        # CRED / FACT control Excel builders (exceljs)
 src/lib/supabase/     # browser/server/middleware clients
