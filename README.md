@@ -1,6 +1,6 @@
 # Anexo Compras
 
-Multi-tenant Next.js + Supabase SaaS that replaces the desktop **Licuadora.py** script: upload El Salvador DTE JSON files, persist them per company, and export the **F-07 V14 Anexo de Compras** CSV (tipos `03`, `05`, `06`).
+Multi-tenant Next.js + Supabase SaaS that replaces the desktop **Licuadora.py** script: upload El Salvador DTE JSON files, persist them per company, and export the **F-07 V14 Anexo de Compras** CSV plus two control Excels (CRED / FACT).
 
 ## Stack
 
@@ -58,26 +58,29 @@ Open [http://localhost:3000](http://localhost:3000).
 1. Sign up / sign in
 2. Create a **workspace**, then a **company**
 3. Open **Carga / Export**, pick year/month
-4. Upload one or more DTE `.json` files
-5. Review duplicates / out-of-window / informative types (`01`, `07`)
-6. Configure columns **Q / R / S / T** for tipos `03`/`05`/`06` (defaults `1/2/2/2`; forced `0` when period &lt; February 2024)
-7. Download CSV (`;` delimiter, no header, filename ≤ 25 chars, `U=3`, clase=`4`)
+4. Upload one or more DTE `.json` files (any `tipoDte` — known or unexpected)
+5. Review duplicates / out-of-window / informative types
+6. Configure **Q / R / S / T** with labeled F-07 dropdowns (mass + per-row) for tipos `03`/`05`/`06` (defaults `1/2/2/2`; forced `0` when period &lt; February 2024)
+7. Download **CSV** + **Excel CRED** (`03/05/06`) + **Excel FACT** (`01` / `07` / other)
 
 ## Locked behaviour
 
 | Rule | Value |
 |------|--------|
 | Date window | Selected period + **2 prior months** (3 periods total; `0 <= monthDiff <= 2`) |
-| Persisted tipos | `01`, `03`, `05`, `06`, `07` |
+| Persisted tipos | Any parseable `tipoDte` (`01`/`03`/`05`/`06`/`07` **and unexpected**). Out-of-window JSON are **not** stored (exportables and informative alike) — re-upload under the matching period. |
 | CSV rows | tipos **`03`, `05`, `06`** |
-| Informative only | `01`, `07` |
+| Excel CRED | `03`/`05`/`06` — Licuadora CRED columns + signed 05/06 + EXENTO + Q–T |
+| Excel FACT | `01` and any non-03/05/06 (incl. `07` and unexpected) — fecha, tipo, código, NIT/NRC, nombre, totales, source filename |
+| Informative only | Everything except `03`/`05`/`06` |
 | 05 / 06 amounts | NC (`05`) **subtracts** (negative money cols); ND (`06`) **adds** (positive), per F-07 total rules |
 | Encoding fallbacks | utf-8-sig → cp1252 → latin-1 |
 | Tributos | IVA `20`, COTRANS `C8`, FOVIAL `D1` |
 | Column E | Prefer **NIT** (no dashes); if empty, **NRC** (no dashes, no zero-padding) |
 | Código generación | dashes stripped |
 | Money | text `0.00` (signed when needed), 2 decimals, max 10 chars |
-| Q–T before Feb 2024 | all `0`; from 2024-02 keep configured codes |
+| Q–T before Feb 2024 | all `0`; from 2024-02 keep configured codes (UI shows code + name from F-07) |
+| Control Excel names | `YYYYMM - CONTROL CRED.xlsx` / `YYYYMM - CONTROL FACT.xlsx` |
 
 ## Scripts
 
@@ -91,12 +94,13 @@ npm run lint
 ## Project layout
 
 ```
-src/lib/dte/          # parse, window, tributos
+src/lib/dte/          # parse, window, tributos, Q–T option catalogs
 src/lib/csv/          # signed amounts, row + CSV builder
+src/lib/excel/        # CRED / FACT control Excel builders (exceljs)
 src/lib/supabase/     # browser/server/middleware clients
 src/app/(auth)/       # login / signup
 src/app/(app)/        # dashboard, companies, export
-supabase/migrations/  # SQL ready to run
+supabase/migrations/  # SQL ready to run (incl. allow-any-tipo_dte)
 ```
 
 ## Notes

@@ -1,12 +1,10 @@
 import { decodeWithFallback } from "./encoding";
 import { sumTributo, roundMoney } from "./tributos";
 import {
-  PERSISTED_DTE_TYPES,
   TRIBUTO_COTRANS,
   TRIBUTO_FOVIAL,
   TRIBUTO_IVA,
   type ParseDteResult,
-  type PersistedDteType,
   type DteTributo,
 } from "./types";
 
@@ -27,13 +25,9 @@ function asNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function isPersistedTipo(tipo: string): tipo is PersistedDteType {
-  return (PERSISTED_DTE_TYPES as readonly string[]).includes(tipo);
-}
-
 /**
  * Parse DTE JSON bytes with encoding fallbacks and extract Anexo Compras fields.
- * Port of Licuadora.py field extraction (+ persist types 01/03/05/06/07).
+ * Accepts any tipoDte (01/03/05/06/07 and unexpected); callers decide export vs informative.
  */
 export function parseDteJson(bytes: Uint8Array): ParseDteResult {
   let text: string;
@@ -78,11 +72,11 @@ export function parseDteJson(bytes: Uint8Array): ParseDteResult {
   }
 
   const tipoDte = asString(identificacion.tipoDte).trim();
-  if (!isPersistedTipo(tipoDte)) {
+  if (!tipoDte) {
     return {
       ok: false,
-      error: `tipoDte '${tipoDte}' no soportado (solo 01, 03, 05, 06, 07)`,
-      code: "unsupported_tipo",
+      error: "Falta identificacion.tipoDte",
+      code: "missing_tipo",
     };
   }
 
@@ -103,6 +97,7 @@ export function parseDteJson(bytes: Uint8Array): ParseDteResult {
     const fovial = sumTributo(tributos, TRIBUTO_FOVIAL);
     const totalConIva = roundMoney(totalGravada + iva);
     const exento = roundMoney(fovial + cotrans);
+    const totalPagar = roundMoney(asNumber(resumen.totalPagar, 0));
 
     return {
       ok: true,
@@ -119,6 +114,7 @@ export function parseDteJson(bytes: Uint8Array): ParseDteResult {
         fovial,
         totalConIva,
         exento,
+        totalPagar,
         encoding,
         raw: root,
       },

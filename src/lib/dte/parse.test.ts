@@ -39,8 +39,8 @@ describe("parseDteJson", () => {
     expect(result.data.totalConIva).toBe(113);
   });
 
-  it("persists exportable 03/05/06 and informative 01/07", () => {
-    for (const tipo of ["01", "03", "05", "06", "07"]) {
+  it("accepts exportable 03/05/06, informative 01/07, and unexpected tipos", () => {
+    for (const tipo of ["01", "03", "05", "06", "07", "11"]) {
       const doc = structuredClone(sampleCred);
       doc.identificacion.tipoDte = tipo;
       const result = parseDteJsonText(JSON.stringify(doc));
@@ -53,14 +53,25 @@ describe("parseDteJson", () => {
     expect(isExportDteType("01")).toBe(false);
     expect(isInformativeDteType("01")).toBe(true);
     expect(isInformativeDteType("07")).toBe(true);
+    expect(isInformativeDteType("11")).toBe(true);
     expect(isInformativeDteType("05")).toBe(false);
   });
 
-  it("rejects unsupported tipo", () => {
+  it("rejects missing tipoDte", () => {
     const doc = structuredClone(sampleCred);
-    doc.identificacion.tipoDte = "11";
+    doc.identificacion.tipoDte = "";
     const result = parseDteJsonText(JSON.stringify(doc));
     expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("missing_tipo");
+  });
+
+  it("extracts totalPagar when present", () => {
+    const doc = structuredClone(sampleCred);
+    doc.identificacion.tipoDte = "01";
+    (doc.resumen as Record<string, unknown>).totalPagar = 42.5;
+    const result = parseDteJsonText(JSON.stringify(doc));
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.totalPagar).toBe(42.5);
   });
 });
 

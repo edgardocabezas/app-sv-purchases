@@ -39,11 +39,11 @@ export default async function ExportPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Carga y export CSV
+          Carga y export
         </h1>
         <p className="text-muted-foreground">
-          Valida DTE JSON, configura Q–T para tipos 03/05/06 y descarga el
-          Anexo de Compras.
+          Valida DTE JSON, configura Q–T (F-07) para tipos 03/05/06 y descarga
+          CSV + Excel CRED/FACT de control.
         </p>
       </div>
       <ExportWorkspace

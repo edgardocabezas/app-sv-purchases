@@ -207,7 +207,8 @@ create policy "companies_delete_admin"
 create table if not exists public.dte_documents (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
-  tipo_dte text not null check (tipo_dte in ('01', '03', '05', '06', '07')),
+  -- Any parseable DTE tipo (01/03/05/06/07 and unexpected); CSV still filters 03/05/06.
+  tipo_dte text not null check (tipo_dte ~ '^[0-9A-Za-z]{1,4}$'),
   codigo_generacion text not null,
   fec_emi date not null,
   emisor_nit text,
