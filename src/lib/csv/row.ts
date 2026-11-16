@@ -6,7 +6,6 @@ import {
 } from "@/lib/dte/types";
 import { signedExportAmounts } from "./amounts";
 import {
-  applyPeriodClassification,
   formatEmissionDate,
   formatMoney,
   resolveProveedorId,
@@ -90,11 +89,8 @@ export type AnexoComprasRow = [
 export function buildAnexoComprasRow(
   input: AnexoComprasRowInput,
 ): AnexoComprasRow {
-  const classification = applyPeriodClassification(
-    input.periodYear,
-    input.periodMonth,
-    input.classification ?? DEFAULT_CLASSIFICATION,
-  );
+  // Always export the selected Q/R/S/T codes (no period-based zeroing).
+  const classification = input.classification ?? DEFAULT_CLASSIFICATION;
 
   const tipoDocumento = input.tipoDocumento ?? "03";
   const amounts = signedExportAmounts(tipoDocumento, {

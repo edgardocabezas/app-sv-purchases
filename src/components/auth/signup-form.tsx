@@ -26,7 +26,8 @@ export function SignupForm() {
       <CardHeader>
         <CardTitle>Crear cuenta</CardTitle>
         <CardDescription>
-          Regístrate para gestionar workspaces, empresas y anexos de compras.
+          Regístrate: creamos tu espacio automáticamente. Luego agrega empresas
+          e invita a tu equipo.
         </CardDescription>
       </CardHeader>
       <form action={formAction}>

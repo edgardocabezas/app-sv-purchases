@@ -43,13 +43,24 @@ export async function updateSession(request: NextRequest) {
   if (!user && isProtected) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("next", path);
+    redirectUrl.searchParams.set(
+      "next",
+      `${path}${request.nextUrl.search}`,
+    );
     return NextResponse.redirect(redirectUrl);
   }
 
   if (user && isAuthRoute) {
+    const next = request.nextUrl.searchParams.get("next");
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/dashboard";
+    redirectUrl.search = "";
+    if (next && next.startsWith("/") && !next.startsWith("//")) {
+      redirectUrl.pathname = next.split("?")[0] || "/dashboard";
+      const q = next.includes("?") ? next.slice(next.indexOf("?") + 1) : "";
+      redirectUrl.search = q;
+    } else {
+      redirectUrl.pathname = "/dashboard";
+    }
     return NextResponse.redirect(redirectUrl);
   }
 

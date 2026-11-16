@@ -28,18 +28,20 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-or-publishable-key
 
 Create a free project at [supabase.com](https://supabase.com) if you do not have one yet. Placeholders work for reading the code; Auth and DB calls need a real project.
 
-### 3. Apply the SQL migration
+### 3. Apply the SQL migrations
 
-Run the contents of:
+Run (in order) the contents of:
 
-`supabase/migrations/20261116000000_init.sql`
+1. `supabase/migrations/20261116000000_init.sql`
+2. `supabase/migrations/20261116010000_allow_any_tipo_dte.sql`
+3. `supabase/migrations/20261116020000_single_workspace_invites.sql`
 
 in the Supabase SQL Editor (or via the Supabase CLI: `supabase db push` after linking the project).
 
 This creates:
 
-- `profiles`, `workspaces`, `workspace_members`, `companies`, `dte_documents`
-- helper functions for membership checks
+- `profiles`, `workspaces`, `workspace_members`, `companies`, `dte_documents`, `workspace_invites`
+- helper functions for membership checks, **default workspace** (`ensure_default_workspace`), and **invite accept** (`accept_workspace_invite`)
 - **RLS** so company/DTE rows are only visible to members of the owning workspace
 - a trigger that inserts `profiles` on `auth.users` signup
 
@@ -55,18 +57,21 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## MVP flow
 
-1. Sign up / sign in
-2. Create a **workspace**, then a **company**
-3. Open **Carga / Export**, pick year/month
-4. Upload one or more DTE `.json` files (any `tipoDte` — known or unexpected)
-5. Review duplicates / out-of-window / informative types
-6. Configure **Q / R / S / T** with name-only F-07 dropdowns (mass + per-row) for tipos `03`/`05`/`06` (defaults `1/2/2/2`; forced `0` when period &lt; February 2024). UI shows labels only; DB/CSV keep numeric codes. Gravada cascade follows manual page 21 (`src/lib/dte/qrt-cascade.ts`).
-7. Review **Documentos del periodo** (filter by tipo, date range, sort; Exento + money footer totals) and download **CSV** + **Excel CRED** (`03/05/06`) + **Excel FACT** (`01` / `07` / other)
+1. Sign up / sign in — the app **auto-creates one default workspace** (owner) if you have none
+2. Create a **company** inside that workspace (no “create another workspace” in the primary UI)
+3. Optionally **invite** teammates by email (owner/admin); they join via `/invite/[token]`
+4. Open **Carga / Export**, pick year/month
+5. Upload one or more DTE `.json` files (any `tipoDte` — known or unexpected)
+6. Review duplicates / out-of-window / informative types
+7. Configure **Clasificación** (Tipo de Operación, Clasificación, Sector, Tipo de Costo/Gasto) with name-only F-07 dropdowns for tipos `03`/`05`/`06` (defaults `1/2/2/2`). UI shows labels only; DB/CSV keep numeric codes. Gravada cascade follows manual page 21 (`src/lib/dte/qrt-cascade.ts`). Export always uses the selected codes (no period-based auto-zero).
+8. Review **Documentos del periodo** (filter by tipo, date range, sort; Exento + money footer totals) and download **CSV** + **Excel CRED** (`03/05/06`) + **Excel FACT** (`01` / `07` / other)
 
 ## Locked behaviour
 
 | Rule | Value |
 |------|--------|
+| Workspaces | **One default space per user** on first login (oldest owned if several already exist). Companies live inside the space. Teammates **join by invite**, not by creating parallel spaces as the main flow. |
+| Invites | Owner/admin invites by email → `workspace_invites` + accept link `/invite/[token]` (RLS-safe). |
 | Date window | Selected period + **2 prior months** (3 periods total; `0 <= monthDiff <= 2`) |
 | Persisted tipos | Any parseable `tipoDte` (`01`/`03`/`05`/`06`/`07` **and unexpected**). Out-of-window JSON are **not** stored (exportables and informative alike) — re-upload under the matching period. |
 | CSV rows | tipos **`03`, `05`, `06`** |
@@ -79,8 +84,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | Column E | Prefer **NIT** (no dashes); if empty, **NRC** (no dashes, no zero-padding) |
 | Código generación | dashes stripped |
 | Money | text `0.00` (signed when needed), 2 decimals, max 10 chars |
-| Q–T before Feb 2024 | all `0`; from 2024-02 keep configured codes |
-| Q–T UI labels | **Names only** (no leading `1 `, `2 ` codes). Persist numeric codes in DB/CSV/Excel |
+| Classification export | Always the **selected** Q/R/S/T codes for the period (no auto-zero for pre–Feb 2024) |
+| Classification UI | Section title **Clasificación**; column headers Tipo de Operación / Clasificación / Sector / Tipo de Costo/Gasto. Names only in dropdowns; persist numeric codes |
 | Q–T cascade (Gravada) | Manual F-07 p.21: Costo+Industria → T `4–7`; Costo+other sectors → T `4–5`; Gasto → T `1–3`. Invalid e.g. `1,1,4,1`; valid `1,1,4,5`. Upstream changes reset invalid T. Mass + per-row both enforce. |
 | Control Excel names | `YYYYMM - CONTROL CRED.xlsx` / `YYYYMM - CONTROL FACT.xlsx` |
 
@@ -96,16 +101,19 @@ npm run lint
 ## Project layout
 
 ```
-src/lib/dte/          # parse, window, tributos, Q–T option catalogs + cascade matrix
+src/lib/dte/          # parse, window, tributos, classification catalogs + cascade matrix
 src/lib/csv/          # signed amounts, row + CSV builder
 src/lib/excel/        # CRED / FACT control Excel builders (exceljs)
+src/lib/workspace/    # primary workspace helpers + ensure-default
 src/lib/supabase/     # browser/server/middleware clients
 src/app/(auth)/       # login / signup
 src/app/(app)/        # dashboard, companies, export
-supabase/migrations/  # SQL ready to run (incl. allow-any-tipo_dte)
+src/app/invite/       # accept workspace invite by token
+supabase/migrations/  # SQL ready to run
 ```
 
 ## Notes
 
 - No live Supabase project is required to review this PR: ship SQL + `.env.example` and wire credentials locally.
 - Service role keys must never be exposed as `NEXT_PUBLIC_*`.
+- Legacy users with multiple workspaces keep access; the UI stops promoting multi-create and treats the oldest owned space as primary.
