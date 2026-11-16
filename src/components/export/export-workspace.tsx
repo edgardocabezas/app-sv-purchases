@@ -5,6 +5,7 @@ import {
   uploadDteFiles,
   bulkUpdateClassification,
   updateDocumentClassification,
+  clearPeriodDocuments,
 } from "@/app/actions/documents";
 import {
   exportAnexoComprasCsv,
@@ -32,6 +33,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -124,6 +134,7 @@ export function ExportWorkspace({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [dateSort, setDateSort] = useState<DateSort>("asc");
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
 
   const periodDocs = useMemo(
     () =>
@@ -236,6 +247,44 @@ export function ExportWorkspace({
       setUploadResults(result.results ?? []);
       setInfo("Carga procesada. Recargando documentos…");
       await reloadDocs();
+    });
+  }
+
+  function onConfirmClearPeriod() {
+    if (!companyId) {
+      setError("Selecciona una empresa.");
+      return;
+    }
+
+    setError(null);
+    setInfo(null);
+    startTransition(async () => {
+      const result = await clearPeriodDocuments({
+        companyId,
+        year,
+        month,
+      });
+      if (result.error) {
+        setError(result.error);
+        setClearDialogOpen(false);
+        return;
+      }
+      setDocs((prev) =>
+        prev.filter(
+          (d) =>
+            !(
+              d.company_id === companyId &&
+              d.period_year === year &&
+              d.period_month === month
+            ),
+        ),
+      );
+      setUploadResults([]);
+      setClearDialogOpen(false);
+      const label = `${year}-${String(month).padStart(2, "0")}`;
+      setInfo(
+        `Periodo ${label} limpiado: ${result.deleted ?? 0} documento(s) eliminado(s). Ya puedes volver a cargar.`,
+      );
     });
   }
 
@@ -432,9 +481,18 @@ export function ExportWorkspace({
         title="Carga multi-JSON"
         description="Persiste cualquier tipoDte parseable. CSV + Excel CRED: 03/05/06. Excel FACT: 01/07/otros. NC (05) resta; ND (06) suma."
         actions={
-          <Button onClick={onUpload} disabled={pending}>
-            {pending ? "Procesando…" : "Subir y validar"}
-          </Button>
+          <>
+            <Button
+              variant="destructive"
+              onClick={() => setClearDialogOpen(true)}
+              disabled={pending || periodDocs.length === 0}
+            >
+              Limpiar periodo
+            </Button>
+            <Button onClick={onUpload} disabled={pending}>
+              {pending ? "Procesando…" : "Subir y validar"}
+            </Button>
+          </>
         }
       >
         <Input
@@ -805,6 +863,37 @@ export function ExportWorkspace({
           </Table>
         </div>
       </BrandPanel>
+
+      <Dialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+        <DialogContent className="sm:max-w-md" showCloseButton={!pending}>
+          <DialogHeader>
+            <DialogTitle>¿Limpiar periodo {periodLabel}?</DialogTitle>
+            <DialogDescription>
+              Se eliminarán permanentemente todos los documentos DTE de la
+              empresa seleccionada para el periodo{" "}
+              <span className="font-medium text-foreground">{periodLabel}</span>{" "}
+              ({periodDocs.length} documento
+              {periodDocs.length === 1 ? "" : "s"}). Esta acción no se puede
+              deshacer. Después podrás volver a cargar archivos limpios. Otros
+              periodos no se modifican.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose
+              render={<Button variant="outline" disabled={pending} />}
+            >
+              Cancelar
+            </DialogClose>
+            <Button
+              variant="destructive"
+              disabled={pending}
+              onClick={onConfirmClearPeriod}
+            >
+              {pending ? "Eliminando…" : "Eliminar documentos"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
