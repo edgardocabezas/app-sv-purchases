@@ -44,21 +44,26 @@ export function InviteMemberForm({
         </Alert>
       ) : null}
       <div className="space-y-2">
-        <Label htmlFor="invite-email">Email</Label>
+        <Label htmlFor="invite-email" className="brand-field-label">
+          Email
+        </Label>
         <Input
           id="invite-email"
           name="email"
           type="email"
           required
           placeholder="colegas@empresa.com"
+          className="h-9 border-brand-border bg-white/80"
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="invite-role">Rol</Label>
+        <Label htmlFor="invite-role" className="brand-field-label">
+          Rol
+        </Label>
         <select
           id="invite-role"
           name="role"
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+          className="brand-select"
           defaultValue="member"
         >
           <option value="member">Miembro</option>

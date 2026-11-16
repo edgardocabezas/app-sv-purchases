@@ -22,11 +22,12 @@ export function LoginForm({ next = "/dashboard" }: { next?: string }) {
   const [state, formAction, pending] = useActionState(signIn, initial);
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>Iniciar sesión</CardTitle>
+    <Card className="w-full max-w-md border-brand-border bg-card/95 shadow-[0_1px_0_rgba(15,40,35,0.04)] ring-brand-border/40">
+      <CardHeader className="space-y-2">
+        <p className="page-eyebrow">Anexo Compras</p>
+        <CardTitle className="font-heading text-2xl">Iniciar sesión</CardTitle>
         <CardDescription>
-          Accede a Anexo Compras con email y contraseña (Supabase Auth).
+          Accede con email y contraseña (Supabase Auth).
         </CardDescription>
       </CardHeader>
       <form action={formAction}>
@@ -38,23 +39,29 @@ export function LoginForm({ next = "/dashboard" }: { next?: string }) {
             </Alert>
           ) : null}
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="brand-field-label">
+              Email
+            </Label>
             <Input
               id="email"
               name="email"
               type="email"
               autoComplete="email"
               required
+              className="h-9 border-brand-border bg-white/80"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Contraseña</Label>
+            <Label htmlFor="password" className="brand-field-label">
+              Contraseña
+            </Label>
             <Input
               id="password"
               name="password"
               type="password"
               autoComplete="current-password"
               required
+              className="h-9 border-brand-border bg-white/80"
             />
           </div>
         </CardContent>
@@ -62,7 +69,7 @@ export function LoginForm({ next = "/dashboard" }: { next?: string }) {
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Entrando…" : "Entrar"}
           </Button>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-brand-muted">
             ¿Sin cuenta?{" "}
             <Link
               href={
@@ -70,7 +77,7 @@ export function LoginForm({ next = "/dashboard" }: { next?: string }) {
                   ? `/signup?next=${encodeURIComponent(next)}`
                   : "/signup"
               }
-              className="underline underline-offset-4"
+              className="font-medium text-brand-accent underline-offset-4 hover:underline"
             >
               Crear cuenta
             </Link>

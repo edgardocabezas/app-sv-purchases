@@ -71,6 +71,7 @@ export async function uploadDteFiles(
     }
 
     const dte = parsed.data;
+    // Persist dash-free código (column D) and tax IDs so CSV/Excel never re-emit dashes.
     const codigo = stripDashes(dte.codigoGeneracion);
 
     const inWindow = isInProcessingWindow(

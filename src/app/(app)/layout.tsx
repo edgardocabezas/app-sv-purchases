@@ -10,12 +10,17 @@ export default async function AppLayout({
 }) {
   if (!hasSupabaseEnv()) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold">Supabase no configurado</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Copia <code>.env.example</code> a <code>.env.local</code> y aplica la
-          migración SQL en tu proyecto Supabase.
-        </p>
+      <div className="auth-shell">
+        <div className="brand-panel w-full max-w-lg px-8 py-10 text-center">
+          <p className="page-eyebrow">Configuración</p>
+          <h1 className="page-title mt-2">Supabase no configurado</h1>
+          <p className="page-description mx-auto mt-3">
+            Copia <code className="rounded bg-brand-accent-soft px-1">.env.example</code>{" "}
+            a{" "}
+            <code className="rounded bg-brand-accent-soft px-1">.env.local</code>{" "}
+            y aplica la migración SQL en tu proyecto Supabase.
+          </p>
+        </div>
       </div>
     );
   }

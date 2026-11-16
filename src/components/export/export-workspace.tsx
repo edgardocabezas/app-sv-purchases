@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useMemo,
-  useState,
-  useTransition,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
 import {
   uploadDteFiles,
   bulkUpdateClassification,
@@ -31,6 +25,7 @@ import {
   optionsForTipoOperacion,
 } from "@/lib/dte/qrt-cascade";
 import { ClassificationSelect } from "@/components/export/classification-select";
+import { BrandPanel } from "@/components/brand-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,46 +78,6 @@ function money(n: number): string {
   return Number(n).toFixed(2);
 }
 
-function Section({
-  eyebrow,
-  title,
-  description,
-  children,
-  actions,
-}: {
-  eyebrow?: string;
-  title: string;
-  description?: string;
-  children: ReactNode;
-  actions?: ReactNode;
-}) {
-  return (
-    <section className="overflow-hidden rounded-2xl border border-[var(--export-border)] bg-[var(--export-panel)]/90 shadow-[0_1px_0_rgba(15,40,35,0.04)] backdrop-blur-sm">
-      <div className="flex flex-col gap-3 border-b border-[var(--export-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.55),transparent)] px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-1">
-          {eyebrow ? (
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--export-accent)]">
-              {eyebrow}
-            </p>
-          ) : null}
-          <h2 className="text-lg font-semibold tracking-tight text-[var(--export-ink)]">
-            {title}
-          </h2>
-          {description ? (
-            <p className="max-w-3xl text-sm leading-relaxed text-[var(--export-muted)]">
-              {description}
-            </p>
-          ) : null}
-        </div>
-        {actions ? (
-          <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>
-        ) : null}
-      </div>
-      <div className="px-5 py-5">{children}</div>
-    </section>
-  );
-}
-
 function Field({
   id,
   label,
@@ -134,10 +89,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label
-        htmlFor={id}
-        className="text-xs font-medium uppercase tracking-wide text-[var(--export-muted)]"
-      >
+      <Label htmlFor={id} className="brand-field-label">
         {label}
       </Label>
       {children}
@@ -145,8 +97,7 @@ function Field({
   );
 }
 
-const selectClass =
-  "flex h-9 w-full rounded-lg border border-[var(--export-border)] bg-white/80 px-3 py-1 text-sm text-[var(--export-ink)] shadow-sm outline-none transition focus-visible:border-[var(--export-accent)] focus-visible:ring-2 focus-visible:ring-[var(--export-accent)]/25";
+const selectClass = "brand-select";
 
 export function ExportWorkspace({
   companies,
@@ -413,37 +364,19 @@ export function ExportWorkspace({
   const periodLabel = `${year}-${String(month).padStart(2, "0")}`;
 
   return (
-    <div
-      className="export-surface relative space-y-6"
-      style={
-        {
-          "--export-ink": "#14231f",
-          "--export-muted": "#5b6f68",
-          "--export-accent": "#0f766e",
-          "--export-accent-soft": "#ccfbf1",
-          "--export-border": "#d7e3de",
-          "--export-panel": "#f7fbf9",
-          "--export-table-head": "#ecf4f1",
-        } as CSSProperties
-      }
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 -top-8 -z-10 h-72 rounded-[2rem] bg-[radial-gradient(ellipse_at_top_left,rgba(15,118,110,0.14),transparent_55%),radial-gradient(ellipse_at_top_right,rgba(20,60,50,0.08),transparent_45%),linear-gradient(180deg,rgba(236,244,241,0.9),transparent)]"
-      />
-
+    <div className="relative space-y-6">
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
       {info ? (
-        <Alert className="border-[var(--export-border)] bg-white/70">
+        <Alert className="border-brand-border bg-white/70">
           <AlertDescription>{info}</AlertDescription>
         </Alert>
       ) : null}
 
-      <Section
+      <BrandPanel
         eyebrow="Contexto"
         title="Periodo y empresa"
         description="Ventana: periodo seleccionado + 2 meses anteriores (3 periodos). Fuera de ventana no se guarda."
@@ -471,7 +404,7 @@ export function ExportWorkspace({
               max={2100}
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="h-9 rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+              className="h-9 rounded-lg border-brand-border bg-white/80 shadow-sm"
             />
           </Field>
           <Field id="month" label="Mes">
@@ -482,29 +415,23 @@ export function ExportWorkspace({
               max={12}
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
-              className="h-9 rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+              className="h-9 rounded-lg border-brand-border bg-white/80 shadow-sm"
             />
           </Field>
         </div>
-        <p className="mt-4 text-xs text-[var(--export-muted)]">
+        <p className="mt-4 text-xs text-brand-muted">
           Periodo activo:{" "}
-          <span className="font-medium text-[var(--export-ink)]">
-            {periodLabel}
-          </span>{" "}
-          · {periodDocs.length} documentos cargados
+          <span className="font-medium text-brand-ink">{periodLabel}</span> ·{" "}
+          {periodDocs.length} documentos cargados
         </p>
-      </Section>
+      </BrandPanel>
 
-      <Section
+      <BrandPanel
         eyebrow="Ingesta"
         title="Carga multi-JSON"
         description="Persiste cualquier tipoDte parseable. CSV + Excel CRED: 03/05/06. Excel FACT: 01/07/otros. NC (05) resta; ND (06) suma."
         actions={
-          <Button
-            onClick={onUpload}
-            disabled={pending}
-            className="bg-[var(--export-accent)] text-white hover:bg-[var(--export-accent)]/90"
-          >
+          <Button onClick={onUpload} disabled={pending}>
             {pending ? "Procesando…" : "Subir y validar"}
           </Button>
         }
@@ -514,10 +441,10 @@ export function ExportWorkspace({
           accept=".json,application/json"
           multiple
           onChange={(e) => setFiles(e.target.files)}
-          className="max-w-xl cursor-pointer rounded-lg border-[var(--export-border)] bg-white/80 file:mr-3 file:rounded-md file:border-0 file:bg-[var(--export-accent-soft)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[var(--export-accent)]"
+          className="max-w-xl cursor-pointer rounded-lg border-brand-border bg-white/80 file:mr-3 file:rounded-md file:border-0 file:bg-brand-accent-soft file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-accent"
         />
         {uploadResults.length > 0 ? (
-          <div className="mt-4 space-y-2 rounded-xl border border-[var(--export-border)] bg-white/60 p-3">
+          <div className="mt-4 space-y-2 rounded-xl border border-brand-border bg-white/60 p-3">
             {uploadResults.map((r, i) => (
               <div
                 key={`${r.filename}-${i}`}
@@ -535,14 +462,14 @@ export function ExportWorkspace({
                   {r.status}
                 </Badge>
                 <span className="font-medium">{r.filename}</span>
-                <span className="text-[var(--export-muted)]">{r.message}</span>
+                <span className="text-brand-muted">{r.message}</span>
               </div>
             ))}
           </div>
         ) : null}
-      </Section>
+      </BrandPanel>
 
-      <Section
+      <BrandPanel
         eyebrow="F-07"
         title="Clasificación"
         description="Nombres en pantalla; códigos numéricos en DB/CSV. Cascada Gravada según manual pág. 21. Defaults: Gravada / Gasto / Comercio / Gastos de Administración."
@@ -563,7 +490,7 @@ export function ExportWorkspace({
               value={bulk.tipoOperacion}
               options={optionsForTipoOperacion()}
               onChange={(code) => patchBulk({ tipoOperacion: code })}
-              className="rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+              className="rounded-lg border-brand-border bg-white/80 shadow-sm"
             />
           </Field>
           <Field id="bulk-r" label="Clasificación">
@@ -572,7 +499,7 @@ export function ExportWorkspace({
               value={bulk.clasificacion}
               options={optionsForClasificacion()}
               onChange={(code) => patchBulk({ clasificacion: code })}
-              className="rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+              className="rounded-lg border-brand-border bg-white/80 shadow-sm"
             />
           </Field>
           <Field id="bulk-s" label="Sector">
@@ -581,7 +508,7 @@ export function ExportWorkspace({
               value={bulk.sector}
               options={optionsForSector()}
               onChange={(code) => patchBulk({ sector: code })}
-              className="rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+              className="rounded-lg border-brand-border bg-white/80 shadow-sm"
             />
           </Field>
           <Field id="bulk-t" label="Tipo de Costo/Gasto">
@@ -590,13 +517,13 @@ export function ExportWorkspace({
               value={bulk.tipoCostoGasto}
               options={bulkTOptions}
               onChange={(code) => patchBulk({ tipoCostoGasto: code })}
-              className="rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+              className="rounded-lg border-brand-border bg-white/80 shadow-sm"
             />
           </Field>
         </div>
-      </Section>
+      </BrandPanel>
 
-      <Section
+      <BrandPanel
         eyebrow="Documentos"
         title="Documentos del periodo"
         description={`${exportable.length} exportables (03/05/06) · ${informative.length} informativos (01/07/otros) · orden por fecha`}
@@ -605,7 +532,6 @@ export function ExportWorkspace({
             <Button
               onClick={onExportCsv}
               disabled={pending || periodExportable.length === 0}
-              className="bg-[var(--export-accent)] text-white hover:bg-[var(--export-accent)]/90"
             >
               Descargar CSV
             </Button>
@@ -630,7 +556,7 @@ export function ExportWorkspace({
           </>
         }
       >
-        <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[var(--export-border)] bg-[linear-gradient(135deg,rgba(204,251,241,0.35),rgba(255,255,255,0.7))] p-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="mb-4 flex flex-col gap-3 rounded-xl border border-brand-border bg-[linear-gradient(135deg,rgba(204,251,241,0.35),rgba(255,255,255,0.7))] p-3 sm:flex-row sm:flex-wrap sm:items-end">
           <Field id="filter-tipo" label="Tipo de documento">
             <select
               id="filter-tipo"
@@ -652,7 +578,7 @@ export function ExportWorkspace({
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="h-9 min-w-[10rem] rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+              className="h-9 min-w-[10rem] rounded-lg border-brand-border bg-white/80 shadow-sm"
             />
           </Field>
           <Field id="date-to" label="Fecha hasta">
@@ -661,7 +587,7 @@ export function ExportWorkspace({
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="h-9 min-w-[10rem] rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
+              className="h-9 min-w-[10rem] rounded-lg border-brand-border bg-white/80 shadow-sm"
             />
           </Field>
           <Field id="date-sort" label="Orden fecha">
@@ -689,44 +615,36 @@ export function ExportWorkspace({
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-[var(--export-border)] bg-white/75">
+        <div className="overflow-x-auto rounded-xl border border-brand-border bg-white/75">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="bg-[var(--export-table-head)]">
-                  Tipo
-                </TableHead>
-                <TableHead className="bg-[var(--export-table-head)]">
-                  Fecha
-                </TableHead>
-                <TableHead className="bg-[var(--export-table-head)]">
-                  Código
-                </TableHead>
-                <TableHead className="bg-[var(--export-table-head)]">
-                  Proveedor
-                </TableHead>
-                <TableHead className="bg-[var(--export-table-head)] text-right">
+                <TableHead className="bg-brand-table-head">Tipo</TableHead>
+                <TableHead className="bg-brand-table-head">Fecha</TableHead>
+                <TableHead className="bg-brand-table-head">Código</TableHead>
+                <TableHead className="bg-brand-table-head">Proveedor</TableHead>
+                <TableHead className="bg-brand-table-head text-right">
                   Gravada
                 </TableHead>
-                <TableHead className="bg-[var(--export-table-head)] text-right">
+                <TableHead className="bg-brand-table-head text-right">
                   IVA
                 </TableHead>
-                <TableHead className="bg-[var(--export-table-head)] text-right">
+                <TableHead className="bg-brand-table-head text-right">
                   Total
                 </TableHead>
-                <TableHead className="bg-[var(--export-table-head)] text-right">
+                <TableHead className="bg-brand-table-head text-right">
                   Exento
                 </TableHead>
-                <TableHead className="bg-[var(--export-table-head)] min-w-[9rem]">
+                <TableHead className="min-w-[9rem] bg-brand-table-head">
                   Tipo de Operación
                 </TableHead>
-                <TableHead className="bg-[var(--export-table-head)] min-w-[8rem]">
+                <TableHead className="min-w-[8rem] bg-brand-table-head">
                   Clasificación
                 </TableHead>
-                <TableHead className="bg-[var(--export-table-head)] min-w-[9rem]">
+                <TableHead className="min-w-[9rem] bg-brand-table-head">
                   Sector
                 </TableHead>
-                <TableHead className="bg-[var(--export-table-head)] min-w-[11rem]">
+                <TableHead className="min-w-[11rem] bg-brand-table-head">
                   Tipo de Costo/Gasto
                 </TableHead>
               </TableRow>
@@ -736,7 +654,7 @@ export function ExportWorkspace({
                 <TableRow>
                   <TableCell
                     colSpan={12}
-                    className="py-10 text-center text-[var(--export-muted)]"
+                    className="py-10 text-center text-brand-muted"
                   >
                     Sin documentos para este periodo o filtro.
                   </TableCell>
@@ -751,10 +669,7 @@ export function ExportWorkspace({
                     cls.sector,
                   );
                   return (
-                    <TableRow
-                      key={d.id}
-                      className="border-[var(--export-border)]/70"
-                    >
+                    <TableRow key={d.id} className="border-brand-border/70">
                       <TableCell>
                         <Badge
                           variant={
@@ -842,16 +757,16 @@ export function ExportWorkspace({
                         </>
                       ) : (
                         <>
-                          <TableCell className="tabular-nums text-[var(--export-muted)]">
+                          <TableCell className="tabular-nums text-brand-muted">
                             {d.tipo_operacion ?? "—"}
                           </TableCell>
-                          <TableCell className="tabular-nums text-[var(--export-muted)]">
+                          <TableCell className="tabular-nums text-brand-muted">
                             {d.clasificacion ?? "—"}
                           </TableCell>
-                          <TableCell className="tabular-nums text-[var(--export-muted)]">
+                          <TableCell className="tabular-nums text-brand-muted">
                             {d.sector ?? "—"}
                           </TableCell>
-                          <TableCell className="tabular-nums text-[var(--export-muted)]">
+                          <TableCell className="tabular-nums text-brand-muted">
                             {d.tipo_costo_gasto ?? "—"}
                           </TableCell>
                         </>
@@ -863,10 +778,10 @@ export function ExportWorkspace({
             </TableBody>
             {filtered.length > 0 ? (
               <TableFooter>
-                <TableRow className="border-t-2 border-[var(--export-border)] bg-[var(--export-table-head)]/80 hover:bg-[var(--export-table-head)]/80">
+                <TableRow className="border-t-2 border-brand-border bg-brand-table-head/80 hover:bg-brand-table-head/80">
                   <TableCell
                     colSpan={4}
-                    className="font-semibold text-[var(--export-ink)]"
+                    className="font-semibold text-brand-ink"
                   >
                     Totales ({filtered.length} filas)
                   </TableCell>
@@ -888,7 +803,7 @@ export function ExportWorkspace({
             ) : null}
           </Table>
         </div>
-      </Section>
+      </BrandPanel>
     </div>
   );
 }
