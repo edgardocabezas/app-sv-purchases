@@ -12,7 +12,7 @@ export function AppShell({
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-6">
             <Link href="/dashboard" className="font-semibold tracking-tight">
               Anexo Compras
@@ -43,7 +43,7 @@ export function AppShell({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-8">{children}</main>
     </div>
   );
 }
