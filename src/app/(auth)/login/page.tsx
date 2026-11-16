@@ -7,7 +7,7 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div className="auth-shell">
       <LoginForm next={params.next || "/dashboard"} />
     </div>
   );

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ExportWorkspace } from "@/components/export/export-workspace";
+import { PageHeader } from "@/components/page-header";
 import { ensureDefaultWorkspace } from "@/lib/workspace/ensure";
 import type { Company, DteDocument } from "@/types/database";
 
@@ -40,18 +41,11 @@ export default async function ExportPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-teal-700">
-          Anexo Compras · F-07
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight text-stone-900">
-          Carga y export
-        </h1>
-        <p className="max-w-2xl text-sm leading-relaxed text-stone-600">
-          Valida DTE JSON, configura clasificación con cascada F-07 (nombres en
-          UI, códigos en CSV) y descarga Anexo + Excel CRED/FACT.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Anexo Compras · F-07"
+        title="Carga y export"
+        description="Valida DTE JSON, configura clasificación con cascada F-07 (nombres en UI, códigos en CSV) y descarga Anexo + Excel CRED/FACT."
+      />
       <ExportWorkspace
         companies={(companies ?? []) as Company[]}
         initialDocs={(docs ?? []) as DteDocument[]}

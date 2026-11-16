@@ -49,7 +49,7 @@ export function CreateCompanyForm({
           <select
             id="workspace_id"
             name="workspace_id"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+            className="brand-select"
             required
             defaultValue={workspaces[0]?.id}
           >
@@ -62,17 +62,28 @@ export function CreateCompanyForm({
         </div>
       )}
       <div className="space-y-2">
-        <Label htmlFor="company-name">Nombre de la empresa</Label>
-        <Input id="company-name" name="name" required />
+        <Label htmlFor="company-name" className="brand-field-label">
+          Nombre de la empresa
+        </Label>
+        <Input
+          id="company-name"
+          name="name"
+          required
+          className="h-9 border-brand-border bg-white/80"
+        />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="nit">NIT (opcional)</Label>
-          <Input id="nit" name="nit" />
+          <Label htmlFor="nit" className="brand-field-label">
+            NIT (opcional)
+          </Label>
+          <Input id="nit" name="nit" className="h-9 border-brand-border bg-white/80" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="nrc">NRC (opcional)</Label>
-          <Input id="nrc" name="nrc" />
+          <Label htmlFor="nrc" className="brand-field-label">
+            NRC (opcional)
+          </Label>
+          <Input id="nrc" name="nrc" className="h-9 border-brand-border bg-white/80" />
         </div>
       </div>
       <Button type="submit" disabled={pending}>

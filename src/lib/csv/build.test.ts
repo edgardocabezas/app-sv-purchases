@@ -5,15 +5,27 @@ import { formatMoney, resolveProveedorId, stripDashes } from "./format";
 import { amountSignForTipo, signedExportAmounts } from "./amounts";
 
 describe("format helpers", () => {
-  it("strips dashes from codes and IDs", () => {
+  it("strips dashes (and slashes) from codes and IDs", () => {
     expect(stripDashes("A1B2-C3D4-E5F6")).toBe("A1B2C3D4E5F6");
     expect(stripDashes("0614-123456-001-2")).toBe("06141234560012");
+    expect(stripDashes("A1B2C3D4-E5F6-7890-ABCD-EF1234567890")).toBe(
+      "A1B2C3D4E5F67890ABCDEF1234567890",
+    );
+    expect(stripDashes("alreadyclean")).toBe("alreadyclean");
+    expect(stripDashes("  spaced-id  ")).toBe("spacedid");
+    expect(stripDashes("0614/290101/001/2")).toBe("06142901010012");
   });
 
-  it("formats money with 2 decimals", () => {
+  it("formats money with exactly 2 decimals as text", () => {
     expect(formatMoney(13)).toBe("13.00");
+    expect(formatMoney(12.5)).toBe("12.50");
     expect(formatMoney(100.1)).toBe("100.10");
+    expect(formatMoney(0)).toBe("0.00");
     expect(formatMoney(-13)).toBe("-13.00");
+    expect(formatMoney(-6.5)).toBe("-6.50");
+    expect(formatMoney(1.999)).toBe("2.00");
+    expect(formatMoney(0.004)).toBe("0.00");
+    expect(formatMoney(0.005)).toBe("0.01");
   });
 
   it("prefers NIT then NRC without dashes or padding", () => {
@@ -68,6 +80,68 @@ describe("buildAnexoComprasRow", () => {
     expect(row[20]).toBe("3");
   });
 
+  it("column D always strips dashes from código de generación", () => {
+    const uuid = "A1B2C3D4-E5F6-7890-ABCD-EF1234567890";
+    const row = buildAnexoComprasRow({
+      fecEmi: "2024-05-10",
+      codigoGeneracion: uuid,
+      emisorNit: "1",
+      emisorNrc: "",
+      emisorNombre: "P",
+      totalGravada: 1,
+      iva: 0.13,
+      totalConIva: 1.13,
+      periodYear: 2024,
+      periodMonth: 5,
+    });
+    expect(row[3]).toBe("A1B2C3D4E5F67890ABCDEF1234567890");
+    expect(row[3]).not.toContain("-");
+    // Idempotent if already dash-free (e.g. after upload persistence).
+    const again = buildAnexoComprasRow({
+      fecEmi: "2024-05-10",
+      codigoGeneracion: row[3],
+      emisorNit: "1",
+      emisorNrc: "",
+      emisorNombre: "P",
+      totalGravada: 1,
+      iva: 0.13,
+      totalConIva: 1.13,
+      periodYear: 2024,
+      periodMonth: 5,
+    });
+    expect(again[3]).toBe(row[3]);
+  });
+
+  it("formats every money column G–O with exactly 2 decimals", () => {
+    const row = buildAnexoComprasRow({
+      fecEmi: "2024-05-10",
+      codigoGeneracion: "X",
+      emisorNit: "1",
+      emisorNrc: "",
+      emisorNombre: "P",
+      totalGravada: 12.5,
+      iva: 1.625,
+      totalConIva: 14.125,
+      periodYear: 2024,
+      periodMonth: 5,
+    });
+    const moneyCols = row.slice(6, 15); // G–O (indexes 6..14)
+    expect(moneyCols).toEqual([
+      "0.00",
+      "0.00",
+      "0.00",
+      "12.50",
+      "0.00",
+      "0.00",
+      "0.00",
+      "1.63",
+      "14.13",
+    ]);
+    for (const cell of moneyCols) {
+      expect(cell).toMatch(/^-?\d+\.\d{2}$/);
+    }
+  });
+
   it("emits tipo 05/06 with signed money columns", () => {
     const nc = buildAnexoComprasRow({
       fecEmi: "2024-05-10",
@@ -83,6 +157,7 @@ describe("buildAnexoComprasRow", () => {
       tipoDocumento: "05",
     });
     expect(nc[2]).toBe("05");
+    expect(nc[3]).toBe("NC1");
     expect(nc[9]).toBe("-50.00");
     expect(nc[13]).toBe("-6.50");
     expect(nc[14]).toBe("-56.50");
@@ -167,6 +242,28 @@ describe("buildAnexoComprasCsv", () => {
     expect(csv.startsWith("10/05/2024;4;03;")).toBe(true);
     expect(csv.includes("\n10/05")).toBe(false);
     expect(csv.split(";")).toHaveLength(21);
+  });
+
+  it("CSV line keeps column D dash-free and money as 2 decimals", () => {
+    const row = buildAnexoComprasRow({
+      fecEmi: "2024-05-10",
+      codigoGeneracion: "AA-BB-CC",
+      emisorNit: "0614-1",
+      emisorNrc: "",
+      emisorNombre: "P",
+      totalGravada: 12.5,
+      iva: 1.625,
+      totalConIva: 14.125,
+      periodYear: 2024,
+      periodMonth: 5,
+    });
+    const csv = buildAnexoComprasCsv([row]).trimEnd();
+    const cells = csv.split(";");
+    expect(cells[3]).toBe("AABBCC");
+    expect(cells[3]).not.toContain("-");
+    for (let i = 6; i <= 14; i += 1) {
+      expect(cells[i]).toMatch(/^-?\d+\.\d{2}$/);
+    }
   });
 
   it("keeps filename ≤ 25 chars", () => {

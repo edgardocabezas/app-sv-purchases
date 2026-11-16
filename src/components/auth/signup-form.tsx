@@ -22,9 +22,10 @@ export function SignupForm() {
   const [state, formAction, pending] = useActionState(signUp, initial);
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>Crear cuenta</CardTitle>
+    <Card className="w-full max-w-md border-brand-border bg-card/95 shadow-[0_1px_0_rgba(15,40,35,0.04)] ring-brand-border/40">
+      <CardHeader className="space-y-2">
+        <p className="page-eyebrow">Anexo Compras</p>
+        <CardTitle className="font-heading text-2xl">Crear cuenta</CardTitle>
         <CardDescription>
           Regístrate: creamos tu espacio automáticamente. Luego agrega empresas
           e invita a tu equipo.
@@ -43,21 +44,33 @@ export function SignupForm() {
             </Alert>
           ) : null}
           <div className="space-y-2">
-            <Label htmlFor="full_name">Nombre</Label>
-            <Input id="full_name" name="full_name" autoComplete="name" />
+            <Label htmlFor="full_name" className="brand-field-label">
+              Nombre
+            </Label>
+            <Input
+              id="full_name"
+              name="full_name"
+              autoComplete="name"
+              className="h-9 border-brand-border bg-white/80"
+            />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="brand-field-label">
+              Email
+            </Label>
             <Input
               id="email"
               name="email"
               type="email"
               autoComplete="email"
               required
+              className="h-9 border-brand-border bg-white/80"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Contraseña</Label>
+            <Label htmlFor="password" className="brand-field-label">
+              Contraseña
+            </Label>
             <Input
               id="password"
               name="password"
@@ -65,6 +78,7 @@ export function SignupForm() {
               autoComplete="new-password"
               minLength={6}
               required
+              className="h-9 border-brand-border bg-white/80"
             />
           </div>
         </CardContent>
@@ -72,9 +86,12 @@ export function SignupForm() {
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Creando…" : "Crear cuenta"}
           </Button>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-brand-muted">
             ¿Ya tienes cuenta?{" "}
-            <Link href="/login" className="underline underline-offset-4">
+            <Link
+              href="/login"
+              className="font-medium text-brand-accent underline-offset-4 hover:underline"
+            >
               Iniciar sesión
             </Link>
           </p>

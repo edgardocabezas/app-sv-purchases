@@ -1,12 +1,23 @@
-/** Strip dashes and slashes from tax IDs / generation codes. */
+/**
+ * Strip dashes (and slashes used in some tax IDs) from codes / identifiers.
+ * Column D (código de generación) and Column E (NIT/NRC) must be dash-free.
+ */
 export function stripDashes(value: string): string {
   return value.replace(/[-/]/g, "").trim();
 }
 
-/** Format money as text with exactly 2 decimals, no thousands separator, max 10 chars. */
+/**
+ * Format money as text with exactly 2 decimal places.
+ * No thousands separator; max 10 characters (F-07 money columns).
+ * Used for every numeric CSV column (G–O and Excel money cells).
+ */
 export function formatMoney(value: number): string {
   const n = Number.isFinite(value) ? value : 0;
-  const formatted = n.toFixed(2);
+  // Round half away from zero at 2 decimals, then emit fixed text.
+  const scaled = n * 100;
+  const roundedInt =
+    scaled >= 0 ? Math.floor(scaled + 0.5 + Number.EPSILON) : Math.ceil(scaled - 0.5 - Number.EPSILON);
+  const formatted = (roundedInt / 100).toFixed(2);
   if (formatted.length > 10) {
     throw new Error(`Money value exceeds 10 characters: ${formatted}`);
   }

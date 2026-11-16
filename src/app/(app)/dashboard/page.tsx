@@ -3,14 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureDefaultWorkspace } from "@/lib/workspace/ensure";
 import { pickPrimaryWorkspace } from "@/lib/workspace/primary";
 import { InviteMemberForm } from "@/components/workspace/invite-member-form";
+import { PageHeader } from "@/components/page-header";
+import { BrandPanel } from "@/components/brand-panel";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import type { WorkspaceInvite, WorkspaceRole } from "@/types/database";
 
 export default async function DashboardPage() {
@@ -71,83 +66,69 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Un espacio por usuario → empresas → carga DTE → export CSV F-07.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Espacio de trabajo"
+        title="Dashboard"
+        description="Un espacio por usuario → empresas → carga DTE → export CSV F-07."
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Espacio</CardTitle>
-          </CardHeader>
-          <CardContent className="text-lg font-semibold">
-            {primary?.name ?? "—"}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Empresas</CardTitle>
-          </CardHeader>
-          <CardContent className="text-3xl font-semibold">
-            {companies?.length ?? 0}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">DTEs</CardTitle>
-          </CardHeader>
-          <CardContent className="text-3xl font-semibold">
-            {dteCount ?? 0}
-          </CardContent>
-        </Card>
+        {[
+          { label: "Espacio", value: primary?.name ?? "—" },
+          { label: "Empresas", value: String(companies?.length ?? 0) },
+          { label: "DTEs", value: String(dteCount ?? 0) },
+        ].map((stat) => (
+          <div key={stat.label} className="brand-panel px-5 py-4">
+            <p className="brand-field-label">{stat.label}</p>
+            <p className="mt-2 font-heading text-2xl font-semibold tracking-tight text-brand-ink">
+              {stat.value}
+            </p>
+          </div>
+        ))}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Tu espacio</CardTitle>
-            <CardDescription>
-              Se crea automáticamente al registrarte. Las empresas viven aquí;
-              invita colegas por email en lugar de crear espacios paralelos.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <BrandPanel
+          eyebrow="Equipo"
+          title="Tu espacio"
+          description="Se crea automáticamente al registrarte. Las empresas viven aquí; invita colegas por email en lugar de crear espacios paralelos."
+        >
+          <div className="space-y-4">
             {primary ? (
-              <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                <span className="font-medium">{primary.name}</span>
-                <span className="text-muted-foreground">{primaryRole}</span>
+              <div className="flex items-center justify-between rounded-xl border border-brand-border bg-white/70 px-3 py-2.5 text-sm">
+                <span className="font-medium text-brand-ink">{primary.name}</span>
+                <span className="rounded-md bg-brand-accent-soft px-2 py-0.5 text-xs font-medium text-brand-accent">
+                  {primaryRole}
+                </span>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Preparando tu espacio…
-              </p>
+              <p className="text-sm text-brand-muted">Preparando tu espacio…</p>
             )}
             {membershipViews.length > 1 ? (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-brand-muted">
                 Tienes acceso a {membershipViews.length} espacios (legado o
                 invitaciones). El principal es el más antiguo que posees.
               </p>
             ) : null}
             {canInvite && primary ? (
-              <div className="space-y-3 border-t pt-4">
-                <h3 className="text-sm font-medium">Invitar al equipo</h3>
+              <div className="space-y-3 border-t border-brand-border pt-4">
+                <h3 className="text-sm font-medium text-brand-ink">
+                  Invitar al equipo
+                </h3>
                 <InviteMemberForm workspaceId={primary.id} />
                 {pendingInvites && pendingInvites.length > 0 ? (
                   <ul className="space-y-2 text-sm">
                     {pendingInvites.map((inv) => (
                       <li
                         key={inv.id}
-                        className="rounded-md border px-3 py-2 text-muted-foreground"
+                        className="rounded-xl border border-brand-border bg-white/60 px-3 py-2 text-brand-muted"
                       >
                         <div className="flex justify-between gap-2">
                           <span>
                             {inv.email} · {inv.role}
                           </span>
                         </div>
-                        <code className="mt-1 block truncate text-xs">
+                        <code className="mt-1 block truncate text-xs text-brand-ink/80">
                           /invite/{inv.token}
                         </code>
                       </li>
@@ -156,28 +137,26 @@ export default async function DashboardPage() {
                 ) : null}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-brand-muted">
                 Accedes como miembro invitado. Pide a un admin que gestione
                 empresas e invitaciones.
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </BrandPanel>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Siguiente paso</CardTitle>
-            <CardDescription>
-              Administra empresas y genera el anexo.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-3">
+        <BrandPanel
+          eyebrow="Flujo"
+          title="Siguiente paso"
+          description="Administra empresas y genera el anexo."
+        >
+          <div className="flex flex-wrap gap-3">
             <Button render={<Link href="/companies" />}>Empresas</Button>
             <Button variant="outline" render={<Link href="/export" />}>
               Carga / Export
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </BrandPanel>
       </div>
     </div>
   );

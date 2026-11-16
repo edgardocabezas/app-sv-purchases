@@ -7,6 +7,7 @@ Multi-tenant Next.js + Supabase SaaS that replaces the desktop **Licuadora.py** 
 - Next.js 15 (App Router) + TypeScript + Tailwind CSS + shadcn/ui
 - Supabase Auth (email/password) + Postgres + RLS
 - Core logic under `src/lib/dte/` (parse/validate) and `src/lib/csv/` (Anexo builder)
+- Global teal/slate design tokens in `src/app/globals.css` (shared nav, panels, forms, tables)
 
 ## Local setup
 
@@ -82,8 +83,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | Encoding fallbacks | utf-8-sig → cp1252 → latin-1 |
 | Tributos | IVA `20`, COTRANS `C8`, FOVIAL `D1` |
 | Column E | Prefer **NIT** (no dashes); if empty, **NRC** (no dashes, no zero-padding) |
-| Código generación | dashes stripped |
-| Money | text `0.00` (signed when needed), 2 decimals, max 10 chars |
+| Código generación (col D) | dashes stripped on **upload persist** and again in CSV/Excel builders |
+| Money (cols G–O) | text with **exactly 2 decimals** via `formatMoney` (e.g. `12.50`, `0.00`; signed for 05) |
 | Classification export | Always the **selected** Q/R/S/T codes for the period (no auto-zero for pre–Feb 2024) |
 | Classification UI | Section title **Clasificación**; column headers Tipo de Operación / Clasificación / Sector / Tipo de Costo/Gasto. Names only in dropdowns; persist numeric codes |
 | Q–T cascade (Gravada) | Manual F-07 p.21: Costo+Industria → T `4–7`; Costo+other sectors → T `4–5`; Gasto → T `1–3`. Invalid e.g. `1,1,4,1`; valid `1,1,4,5`. Upstream changes reset invalid T. Mass + per-row both enforce. |
