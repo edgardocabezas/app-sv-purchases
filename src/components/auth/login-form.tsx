@@ -64,7 +64,14 @@ export function LoginForm({ next = "/dashboard" }: { next?: string }) {
           </Button>
           <p className="text-sm text-muted-foreground">
             ¿Sin cuenta?{" "}
-            <Link href="/signup" className="underline underline-offset-4">
+            <Link
+              href={
+                next && next !== "/dashboard"
+                  ? `/signup?next=${encodeURIComponent(next)}`
+                  : "/signup"
+              }
+              className="underline underline-offset-4"
+            >
               Crear cuenta
             </Link>
           </p>

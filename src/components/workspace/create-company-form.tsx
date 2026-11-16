@@ -14,15 +14,17 @@ const initial: WorkspaceActionState = {};
 
 export function CreateCompanyForm({
   workspaces,
+  hideWorkspaceSelect = false,
 }: {
   workspaces: { id: string; name: string }[];
+  hideWorkspaceSelect?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(createCompany, initial);
 
   if (workspaces.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Crea un workspace antes de agregar empresas.
+        Tu espacio se está preparando. Recarga en un momento.
       </p>
     );
   }
@@ -39,22 +41,26 @@ export function CreateCompanyForm({
           <AlertDescription>{state.success}</AlertDescription>
         </Alert>
       ) : null}
-      <div className="space-y-2">
-        <Label htmlFor="workspace_id">Workspace</Label>
-        <select
-          id="workspace_id"
-          name="workspace_id"
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-          required
-          defaultValue={workspaces[0]?.id}
-        >
-          {workspaces.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {hideWorkspaceSelect ? (
+        <input type="hidden" name="workspace_id" value={workspaces[0]?.id} />
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor="workspace_id">Espacio</Label>
+          <select
+            id="workspace_id"
+            name="workspace_id"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+            required
+            defaultValue={workspaces[0]?.id}
+          >
+            {workspaces.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="company-name">Nombre de la empresa</Label>
         <Input id="company-name" name="name" required />

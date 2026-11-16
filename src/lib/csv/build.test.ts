@@ -105,7 +105,7 @@ describe("buildAnexoComprasRow", () => {
     expect(nd[13]).toBe("1.30");
   });
 
-  it("zero-fills Q–T before February 2024; keeps codes from 2024-02", () => {
+  it("keeps selected Q–T codes for any declaration period (no pre-2024 zeroing)", () => {
     const before = buildAnexoComprasRow({
       fecEmi: "2023-12-15",
       codigoGeneracion: "X",
@@ -118,14 +118,14 @@ describe("buildAnexoComprasRow", () => {
       periodYear: 2024,
       periodMonth: 1,
     });
-    expect(before[16]).toBe("0");
-    expect(before[17]).toBe("0");
-    expect(before[18]).toBe("0");
-    expect(before[19]).toBe("0");
+    expect(before[16]).toBe("1");
+    expect(before[17]).toBe("2");
+    expect(before[18]).toBe("2");
+    expect(before[19]).toBe("2");
     expect(before[20]).toBe("3");
 
-    const fromFeb = buildAnexoComprasRow({
-      fecEmi: "2024-02-01",
+    const custom = buildAnexoComprasRow({
+      fecEmi: "2023-11-01",
       codigoGeneracion: "Y",
       emisorNit: "1",
       emisorNrc: "",
@@ -133,13 +133,19 @@ describe("buildAnexoComprasRow", () => {
       totalGravada: 1,
       iva: 0.13,
       totalConIva: 1.13,
-      periodYear: 2024,
-      periodMonth: 2,
+      periodYear: 2023,
+      periodMonth: 11,
+      classification: {
+        tipoOperacion: "1",
+        clasificacion: "1",
+        sector: "4",
+        tipoCostoGasto: "5",
+      },
     });
-    expect(fromFeb[16]).toBe("1");
-    expect(fromFeb[17]).toBe("2");
-    expect(fromFeb[18]).toBe("2");
-    expect(fromFeb[19]).toBe("2");
+    expect(custom[16]).toBe("1");
+    expect(custom[17]).toBe("1");
+    expect(custom[18]).toBe("4");
+    expect(custom[19]).toBe("5");
   });
 });
 

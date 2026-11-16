@@ -65,7 +65,7 @@ describe("CRED Excel rows", () => {
     expect(nd[10]).toBe("100.00");
   });
 
-  it("zero-fills Q–T before Feb 2024", () => {
+  it("keeps selected Q–T codes before Feb 2024 (no auto-zero)", () => {
     const row = buildCredExcelRow(
       {
         fecEmi: "2023-12-01",
@@ -78,14 +78,20 @@ describe("CRED Excel rows", () => {
         iva: 0.13,
         totalConIva: 1.13,
         exento: 0,
+        classification: {
+          tipoOperacion: "1",
+          clasificacion: "2",
+          sector: "2",
+          tipoCostoGasto: "2",
+        },
       },
       2024,
       1,
     );
-    expect(row[18]).toBe("0");
-    expect(row[19]).toBe("0");
-    expect(row[20]).toBe("0");
-    expect(row[21]).toBe("0");
+    expect(row[18]).toBe("1");
+    expect(row[19]).toBe("2");
+    expect(row[20]).toBe("2");
+    expect(row[21]).toBe("2");
   });
 
   it("builds a valid xlsx buffer", async () => {

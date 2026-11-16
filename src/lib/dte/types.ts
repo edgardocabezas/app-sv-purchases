@@ -105,10 +105,6 @@ export const DEFAULT_CLASSIFICATION: ExportClassification = {
 export const CLASE_DOCUMENTO_DTE = "4";
 export const NUMERO_ANEXO = "3";
 
-/** Q–T must be "0" for declaration periods before February 2024 (F-07 V14). */
-export const QT_EFFECTIVE_YEAR = 2024;
-export const QT_EFFECTIVE_MONTH = 2;
-
 /**
  * Processing window: selected period + 2 prior months (3 periods total).
  * `isInProcessingWindow` accepts month diffs where `0 <= diff <= 2`.

@@ -13,7 +13,7 @@ export type ClassificationOption = {
 
 /** Q — Tipo de Operación */
 export const TIPO_OPERACION_OPTIONS: readonly ClassificationOption[] = [
-  { code: "0", label: "N/A (periodo < feb 2024)" },
+  { code: "0", label: "N/A" },
   { code: "1", label: "Gravada" },
   { code: "2", label: "No Gravada" },
   { code: "3", label: "Excluido o no Constituye Renta" },
@@ -26,7 +26,7 @@ export const TIPO_OPERACION_OPTIONS: readonly ClassificationOption[] = [
 
 /** R — Clasificación */
 export const CLASIFICACION_OPTIONS: readonly ClassificationOption[] = [
-  { code: "0", label: "N/A (periodo < feb 2024)" },
+  { code: "0", label: "N/A" },
   { code: "1", label: "Costo" },
   { code: "2", label: "Gasto" },
   {
@@ -37,7 +37,7 @@ export const CLASIFICACION_OPTIONS: readonly ClassificationOption[] = [
 
 /** S — Sector */
 export const SECTOR_OPTIONS: readonly ClassificationOption[] = [
-  { code: "0", label: "N/A (periodo < feb 2024)" },
+  { code: "0", label: "N/A" },
   { code: "1", label: "Industria" },
   { code: "2", label: "Comercio" },
   { code: "3", label: "Agropecuaria" },
@@ -53,7 +53,7 @@ export const SECTOR_OPTIONS: readonly ClassificationOption[] = [
 
 /** T — Tipo de Costo / Gasto */
 export const TIPO_COSTO_GASTO_OPTIONS: readonly ClassificationOption[] = [
-  { code: "0", label: "N/A (periodo < feb 2024)" },
+  { code: "0", label: "N/A" },
   { code: "1", label: "Gastos de Venta sin Donación" },
   { code: "2", label: "Gastos de Administración sin Donación" },
   { code: "3", label: "Gastos Financieros sin Donación" },

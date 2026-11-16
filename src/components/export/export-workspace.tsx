@@ -215,7 +215,6 @@ export function ExportWorkspace({
   const exportable = filtered.filter((d) => isExportDteType(d.tipo_dte));
   const informative = filtered.filter((d) => !isExportDteType(d.tipo_dte));
   const periodExportable = periodDocs.filter((d) => isExportDteType(d.tipo_dte));
-  const qtZeroPeriod = year < 2024 || (year === 2024 && month < 2);
 
   const totals = useMemo(() => {
     return filtered.reduce(
@@ -289,12 +288,6 @@ export function ExportWorkspace({
   }
 
   function onApplyClassification() {
-    if (qtZeroPeriod) {
-      setError(
-        "Para periodos anteriores a 2024-02, Q–T se exportan como 0 (manual F-07).",
-      );
-      return;
-    }
     const classification = applyClassificationPatch(bulk, {});
     const ids = periodExportable.map((d) => d.id);
     startTransition(async () => {
@@ -304,7 +297,7 @@ export function ExportWorkspace({
         return;
       }
       setInfo(
-        `Clasificación Q–T aplicada a ${result.updated ?? ids.length} documentos.`,
+        `Clasificación aplicada a ${result.updated ?? ids.length} documentos.`,
       );
       setDocs((prev) =>
         prev.map((d) =>
@@ -326,7 +319,7 @@ export function ExportWorkspace({
     doc: DteDocument,
     patch: Partial<ExportClassification>,
   ) {
-    if (!isExportDteType(doc.tipo_dte) || qtZeroPeriod) return;
+    if (!isExportDteType(doc.tipo_dte)) return;
     const next = applyClassificationPatch(classificationFromDoc(doc), patch);
     setDocs((prev) =>
       prev.map((d) =>
@@ -347,7 +340,9 @@ export function ExportWorkspace({
         setError(result.error);
         return;
       }
-      setInfo(`Q–T actualizado para ${doc.codigo_generacion.slice(0, 8)}…`);
+      setInfo(
+        `Clasificación actualizada para ${doc.codigo_generacion.slice(0, 8)}…`,
+      );
     });
   }
 
@@ -409,7 +404,7 @@ export function ExportWorkspace({
     return (
       <Alert>
         <AlertDescription>
-          Crea un workspace y una empresa antes de cargar DTE.
+          Crea una empresa en tu espacio antes de cargar DTE.
         </AlertDescription>
       </Alert>
     );
@@ -549,27 +544,18 @@ export function ExportWorkspace({
 
       <Section
         eyebrow="F-07"
-        title="Clasificación Q / R / S / T"
-        description="Nombres en pantalla; códigos numéricos en DB/CSV. Cascada Gravada según manual pág. 21. Defaults: Gravada / Gasto / Comercio / Gastos de Administración. Periodos &lt; feb 2024 exportan Q–T como 0."
+        title="Clasificación"
+        description="Nombres en pantalla; códigos numéricos en DB/CSV. Cascada Gravada según manual pág. 21. Defaults: Gravada / Gasto / Comercio / Gastos de Administración."
         actions={
           <Button
             variant="secondary"
             onClick={onApplyClassification}
-            disabled={pending || periodExportable.length === 0 || qtZeroPeriod}
+            disabled={pending || periodExportable.length === 0}
           >
             Aplicar a {periodExportable.length} filas 03/05/06
           </Button>
         }
       >
-        {qtZeroPeriod ? (
-          <Alert className="mb-4 border-amber-200 bg-amber-50/80">
-            <AlertDescription>
-              Periodo anterior a febrero 2024: al exportar, Q–T serán 0
-              automáticamente. La asignación masiva/individual está
-              deshabilitada.
-            </AlertDescription>
-          </Alert>
-        ) : null}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field id="bulk-q" label="Tipo de Operación">
             <ClassificationSelect
@@ -577,7 +563,6 @@ export function ExportWorkspace({
               value={bulk.tipoOperacion}
               options={optionsForTipoOperacion()}
               onChange={(code) => patchBulk({ tipoOperacion: code })}
-              disabled={qtZeroPeriod}
               className="rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
             />
           </Field>
@@ -587,7 +572,6 @@ export function ExportWorkspace({
               value={bulk.clasificacion}
               options={optionsForClasificacion()}
               onChange={(code) => patchBulk({ clasificacion: code })}
-              disabled={qtZeroPeriod}
               className="rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
             />
           </Field>
@@ -597,7 +581,6 @@ export function ExportWorkspace({
               value={bulk.sector}
               options={optionsForSector()}
               onChange={(code) => patchBulk({ sector: code })}
-              disabled={qtZeroPeriod}
               className="rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
             />
           </Field>
@@ -607,7 +590,6 @@ export function ExportWorkspace({
               value={bulk.tipoCostoGasto}
               options={bulkTOptions}
               onChange={(code) => patchBulk({ tipoCostoGasto: code })}
-              disabled={qtZeroPeriod}
               className="rounded-lg border-[var(--export-border)] bg-white/80 shadow-sm"
             />
           </Field>
@@ -761,8 +743,7 @@ export function ExportWorkspace({
                 </TableRow>
               ) : (
                 filtered.map((d) => {
-                  const canEditQt =
-                    isExportDteType(d.tipo_dte) && !qtZeroPeriod;
+                  const canEditQt = isExportDteType(d.tipo_dte);
                   const cls = classificationFromDoc(d);
                   const tOptions = optionsForTipoCostoGasto(
                     cls.tipoOperacion,

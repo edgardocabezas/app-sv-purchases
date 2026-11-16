@@ -7,7 +7,6 @@ import {
 } from "@/lib/dte/types";
 import { amountSignForTipo, signedExportAmounts } from "@/lib/csv/amounts";
 import {
-  applyPeriodClassification,
   formatEmissionDate,
   formatMoney,
   stripDashes,
@@ -64,14 +63,10 @@ export type CredExcelRow = (string | number)[];
  */
 export function buildCredExcelRow(
   doc: CredExcelDoc,
-  periodYear: number,
-  periodMonth: number,
+  _periodYear: number,
+  _periodMonth: number,
 ): CredExcelRow {
-  const classification = applyPeriodClassification(
-    periodYear,
-    periodMonth,
-    doc.classification ?? DEFAULT_CLASSIFICATION,
-  );
+  const classification = doc.classification ?? DEFAULT_CLASSIFICATION;
   const amounts = signedExportAmounts(doc.tipoDte, {
     totalGravada: doc.totalGravada,
     iva: doc.iva,

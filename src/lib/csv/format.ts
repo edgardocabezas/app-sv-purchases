@@ -1,9 +1,3 @@
-import {
-  QT_EFFECTIVE_MONTH,
-  QT_EFFECTIVE_YEAR,
-  type ExportClassification,
-} from "@/lib/dte/types";
-
 /** Strip dashes and slashes from tax IDs / generation codes. */
 export function stripDashes(value: string): string {
   return value.replace(/[-/]/g, "").trim();
@@ -36,27 +30,6 @@ export function resolveProveedorId(nit: string, nrc: string): string {
   if (cleanNit) return cleanNit;
   // Do not zero-pad NRC; keep digits as provided after stripping dashes.
   return stripDashes(nrc);
-}
-
-/** Q–T are forced to "0" when declaration period is before 2024-02. */
-export function applyPeriodClassification(
-  year: number,
-  month: number,
-  classification: ExportClassification,
-): ExportClassification {
-  const beforeEffective =
-    year < QT_EFFECTIVE_YEAR ||
-    (year === QT_EFFECTIVE_YEAR && month < QT_EFFECTIVE_MONTH);
-
-  if (beforeEffective) {
-    return {
-      tipoOperacion: "0",
-      clasificacion: "0",
-      sector: "0",
-      tipoCostoGasto: "0",
-    };
-  }
-  return classification;
 }
 
 export function truncate(value: string, max: number): string {

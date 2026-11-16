@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ExportWorkspace } from "@/components/export/export-workspace";
+import { ensureDefaultWorkspace } from "@/lib/workspace/ensure";
 import type { Company, DteDocument } from "@/types/database";
 
 export default async function ExportPage() {
@@ -7,6 +8,8 @@ export default async function ExportPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  await ensureDefaultWorkspace();
 
   const { data: memberships } = await supabase
     .from("workspace_members")
@@ -45,8 +48,8 @@ export default async function ExportPage() {
           Carga y export
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-stone-600">
-          Valida DTE JSON, clasifica Q–T con cascada F-07 (nombres en UI,
-          códigos en CSV) y descarga Anexo + Excel CRED/FACT.
+          Valida DTE JSON, configura clasificación con cascada F-07 (nombres en
+          UI, códigos en CSV) y descarga Anexo + Excel CRED/FACT.
         </p>
       </header>
       <ExportWorkspace

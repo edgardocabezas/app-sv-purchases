@@ -23,6 +23,17 @@ export interface WorkspaceMember {
   created_at: string;
 }
 
+export interface WorkspaceInvite {
+  id: string;
+  workspace_id: string;
+  email: string;
+  role: Exclude<WorkspaceRole, "owner">;
+  token: string;
+  invited_by: string;
+  accepted_at: string | null;
+  created_at: string;
+}
+
 export interface Company {
   id: string;
   workspace_id: string;
