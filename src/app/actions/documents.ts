@@ -241,3 +241,37 @@ export async function bulkUpdateClassification(
   revalidatePath("/export");
   return { updated: count ?? documentIds.length };
 }
+
+/**
+ * Permanently deletes all DTE rows for company + reporting period.
+ * JSON payloads live in `raw_json` (no separate Storage objects).
+ * Unique (company_id, codigo_generacion) then allows a clean re-upload.
+ */
+export async function clearPeriodDocuments(params: {
+  companyId: string;
+  year: number;
+  month: number;
+}): Promise<{ error?: string; deleted?: number }> {
+  const companyId = String(params.companyId ?? "").trim();
+  const year = Number(params.year);
+  const month = Number(params.month);
+
+  if (!companyId) return { error: "Selecciona una empresa." };
+  if (!year || !month || month < 1 || month > 12) {
+    return { error: "Año/mes inválidos." };
+  }
+
+  const supabase = await createClient();
+  const { error, count } = await supabase
+    .from("dte_documents")
+    .delete({ count: "exact" })
+    .eq("company_id", companyId)
+    .eq("period_year", year)
+    .eq("period_month", month);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/export");
+  revalidatePath("/dashboard");
+  return { deleted: count ?? 0 };
+}
