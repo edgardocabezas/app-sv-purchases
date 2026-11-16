@@ -3,7 +3,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildAnexoComprasCsv, buildAnexoComprasFilename } from "@/lib/csv/build";
 import { buildAnexoComprasRow } from "@/lib/csv/row";
-import { DEFAULT_CLASSIFICATION } from "@/lib/dte/types";
+import {
+  DEFAULT_CLASSIFICATION,
+  EXPORT_DTE_TYPES,
+} from "@/lib/dte/types";
 
 export type ExportActionResult =
   | { ok: true; filename: string; csv: string; rowCount: number }
@@ -25,14 +28,17 @@ export async function exportAnexoComprasCsv(input: {
     .from("dte_documents")
     .select("*")
     .eq("company_id", companyId)
-    .eq("tipo_dte", "03")
+    .in("tipo_dte", [...EXPORT_DTE_TYPES])
     .eq("period_year", year)
     .eq("period_month", month)
     .order("fec_emi", { ascending: true });
 
   if (error) return { ok: false, error: error.message };
   if (!data || data.length === 0) {
-    return { ok: false, error: "No hay documentos tipo 03 para este periodo." };
+    return {
+      ok: false,
+      error: "No hay documentos tipo 03/05/06 para este periodo.",
+    };
   }
 
   try {
@@ -48,6 +54,7 @@ export async function exportAnexoComprasCsv(input: {
         totalConIva: Number(doc.total_con_iva),
         periodYear: year,
         periodMonth: month,
+        tipoDocumento: doc.tipo_dte,
         classification: {
           tipoOperacion: doc.tipo_operacion ?? DEFAULT_CLASSIFICATION.tipoOperacion,
           clasificacion: doc.clasificacion ?? DEFAULT_CLASSIFICATION.clasificacion,

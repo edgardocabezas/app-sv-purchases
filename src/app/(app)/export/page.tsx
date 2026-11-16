@@ -42,8 +42,8 @@ export default async function ExportPage() {
           Carga y export CSV
         </h1>
         <p className="text-muted-foreground">
-          Valida DTE JSON, configura Q–T para tipo 03 y descarga el Anexo de
-          Compras.
+          Valida DTE JSON, configura Q–T para tipos 03/05/06 y descarga el
+          Anexo de Compras.
         </p>
       </div>
       <ExportWorkspace

@@ -1,6 +1,6 @@
 # Anexo Compras
 
-Multi-tenant Next.js + Supabase SaaS that replaces the desktop **Licuadora.py** script: upload El Salvador DTE JSON files, persist them per company, and export the **F-07 V14 Anexo de Compras** CSV (tipo `03`).
+Multi-tenant Next.js + Supabase SaaS that replaces the desktop **Licuadora.py** script: upload El Salvador DTE JSON files, persist them per company, and export the **F-07 V14 Anexo de Compras** CSV (tipos `03`, `05`, `06`).
 
 ## Stack
 
@@ -59,23 +59,25 @@ Open [http://localhost:3000](http://localhost:3000).
 2. Create a **workspace**, then a **company**
 3. Open **Carga / Export**, pick year/month
 4. Upload one or more DTE `.json` files
-5. Review duplicates / out-of-window / informative types (`01`, `05`, `06`, `07`)
-6. Configure columns **Q / R / S / T** for tipo `03` (defaults `1/2/2/2`; forced `0` when period &lt; 2024-02)
+5. Review duplicates / out-of-window / informative types (`01`, `07`)
+6. Configure columns **Q / R / S / T** for tipos `03`/`05`/`06` (defaults `1/2/2/2`; forced `0` when period &lt; February 2024)
 7. Download CSV (`;` delimiter, no header, filename ≤ 25 chars, `U=3`, clase=`4`)
 
-## Behaviour locked for MVP
+## Locked behaviour
 
 | Rule | Value |
 |------|--------|
-| Date window | Target month + 2 prior months |
+| Date window | Selected period + **2 prior months** (3 periods total; `0 <= monthDiff <= 2`) |
 | Persisted tipos | `01`, `03`, `05`, `06`, `07` |
-| CSV rows | tipo `03` only |
+| CSV rows | tipos **`03`, `05`, `06`** |
+| Informative only | `01`, `07` |
+| 05 / 06 amounts | NC (`05`) **subtracts** (negative money cols); ND (`06`) **adds** (positive), per F-07 total rules |
 | Encoding fallbacks | utf-8-sig → cp1252 → latin-1 |
 | Tributos | IVA `20`, COTRANS `C8`, FOVIAL `D1` |
-| Column E | NIT without dashes; else NRC without dashes |
+| Column E | Prefer **NIT** (no dashes); if empty, **NRC** (no dashes, no zero-padding) |
 | Código generación | dashes stripped |
-| Money | text `0.00`, 2 decimals, max 10 chars |
-| Q–T before 2024-02 | all `0` |
+| Money | text `0.00` (signed when needed), 2 decimals, max 10 chars |
+| Q–T before Feb 2024 | all `0`; from 2024-02 keep configured codes |
 
 ## Scripts
 
@@ -90,7 +92,7 @@ npm run lint
 
 ```
 src/lib/dte/          # parse, window, tributos
-src/lib/csv/          # row + CSV builder
+src/lib/csv/          # signed amounts, row + CSV builder
 src/lib/supabase/     # browser/server/middleware clients
 src/app/(auth)/       # login / signup
 src/app/(app)/        # dashboard, companies, export

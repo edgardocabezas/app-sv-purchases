@@ -6,7 +6,12 @@ import { parseDteJson } from "@/lib/dte/parse";
 import { isInProcessingWindow } from "@/lib/dte/window";
 import { stripDashes } from "@/lib/csv/format";
 import type { ExportClassification } from "@/lib/dte/types";
-import { DEFAULT_CLASSIFICATION } from "@/lib/dte/types";
+import {
+  DEFAULT_CLASSIFICATION,
+  EXPORT_DTE_TYPES,
+  PROCESSING_WINDOW_MONTHS_BACK,
+  isExportDteType,
+} from "@/lib/dte/types";
 
 export type UploadResultItem = {
   filename: string;
@@ -64,7 +69,14 @@ export async function uploadDteFiles(
     const dte = parsed.data;
     const codigo = stripDashes(dte.codigoGeneracion);
 
-    if (!isInProcessingWindow(dte.fecEmi, year, month, 2)) {
+    if (
+      !isInProcessingWindow(
+        dte.fecEmi,
+        year,
+        month,
+        PROCESSING_WINDOW_MONTHS_BACK,
+      )
+    ) {
       results.push({
         filename: file.name,
         status: "out_of_window",
@@ -93,7 +105,7 @@ export async function uploadDteFiles(
       continue;
     }
 
-    const isExportable = dte.tipoDte === "03";
+    const isExportable = isExportDteType(dte.tipoDte);
     const classification = DEFAULT_CLASSIFICATION;
 
     const { error } = await supabase.from("dte_documents").insert({
@@ -143,11 +155,10 @@ export async function uploadDteFiles(
 
     results.push({
       filename: file.name,
-      status: dte.tipoDte === "03" ? "saved" : "informative",
-      message:
-        dte.tipoDte === "03"
-          ? "Guardado (incluible en CSV)."
-          : `Guardado como informativo (tipo ${dte.tipoDte}; no va al CSV).`,
+      status: isExportable ? "saved" : "informative",
+      message: isExportable
+        ? `Guardado (incluible en CSV, tipo ${dte.tipoDte}).`
+        : `Guardado como informativo (tipo ${dte.tipoDte}; no va al CSV).`,
       tipoDte: dte.tipoDte,
       codigoGeneracion: codigo,
     });
@@ -173,7 +184,7 @@ export async function updateDocumentClassification(
       updated_at: new Date().toISOString(),
     })
     .eq("id", documentId)
-    .eq("tipo_dte", "03");
+    .in("tipo_dte", [...EXPORT_DTE_TYPES]);
 
   if (error) return { error: error.message };
   revalidatePath("/export");
@@ -199,7 +210,7 @@ export async function bulkUpdateClassification(
       { count: "exact" },
     )
     .in("id", documentIds)
-    .eq("tipo_dte", "03");
+    .in("tipo_dte", [...EXPORT_DTE_TYPES]);
 
   if (error) return { error: error.message };
   revalidatePath("/export");

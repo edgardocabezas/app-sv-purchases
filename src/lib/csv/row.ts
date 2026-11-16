@@ -4,6 +4,7 @@ import {
   NUMERO_ANEXO,
   type ExportClassification,
 } from "@/lib/dte/types";
+import { signedExportAmounts } from "./amounts";
 import {
   applyPeriodClassification,
   formatEmissionDate,
@@ -51,7 +52,11 @@ export interface AnexoComprasRowInput {
   periodYear: number;
   periodMonth: number;
   classification?: ExportClassification;
-  /** Override tipo documento (default 03). */
+  /**
+   * Tipo de documento (column C). Default `03`.
+   * Use `05` / `06` for NC/ND — money columns are signed per F-07
+   * (05 subtracts, 06/03 add). See `signedExportAmounts`.
+   */
   tipoDocumento?: string;
 }
 
@@ -91,6 +96,13 @@ export function buildAnexoComprasRow(
     input.classification ?? DEFAULT_CLASSIFICATION,
   );
 
+  const tipoDocumento = input.tipoDocumento ?? "03";
+  const amounts = signedExportAmounts(tipoDocumento, {
+    totalGravada: input.totalGravada,
+    iva: input.iva,
+    totalConIva: input.totalConIva,
+  });
+
   const codigo = truncate(stripDashes(input.codigoGeneracion), COLUMN_LIMITS.D);
   const proveedorId = truncate(
     resolveProveedorId(input.emisorNit, input.emisorNrc),
@@ -102,19 +114,19 @@ export function buildAnexoComprasRow(
   const row: AnexoComprasRow = [
     formatEmissionDate(input.fecEmi),
     CLASE_DOCUMENTO_DTE,
-    input.tipoDocumento ?? "03",
+    tipoDocumento,
     codigo,
     proveedorId,
     nombre,
     formatMoney(0),
     formatMoney(0),
     formatMoney(0),
-    formatMoney(input.totalGravada),
+    formatMoney(amounts.totalGravada),
     formatMoney(0),
     formatMoney(0),
     formatMoney(0),
-    formatMoney(input.iva),
-    formatMoney(input.totalConIva),
+    formatMoney(amounts.iva),
+    formatMoney(amounts.totalConIva),
     dui,
     classification.tipoOperacion,
     classification.clasificacion,

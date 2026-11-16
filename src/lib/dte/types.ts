@@ -1,8 +1,26 @@
-/** DTE types persisted by the MVP. CSV export uses tipo 03 only. */
+/** DTE types persisted by the MVP. */
 export const PERSISTED_DTE_TYPES = ["01", "03", "05", "06", "07"] as const;
 export type PersistedDteType = (typeof PERSISTED_DTE_TYPES)[number];
 
+/**
+ * Tipos that appear as rows in Anexo Compras CSV (F-07 V14 locked decision).
+ * 01 and 07 remain informative-only (persisted, not exported).
+ */
+export const EXPORT_DTE_TYPES = ["03", "05", "06"] as const;
+export type ExportDteType = (typeof EXPORT_DTE_TYPES)[number];
+
+/** @deprecated Use EXPORT_DTE_TYPES / isExportDteType */
 export const EXPORT_DTE_TYPE = "03" as const;
+
+export const INFORMATIVE_DTE_TYPES = ["01", "07"] as const;
+
+export function isExportDteType(tipo: string): tipo is ExportDteType {
+  return (EXPORT_DTE_TYPES as readonly string[]).includes(tipo);
+}
+
+export function isInformativeDteType(tipo: string): boolean {
+  return (INFORMATIVE_DTE_TYPES as readonly string[]).includes(tipo);
+}
 
 export const TRIBUTO_IVA = "20";
 export const TRIBUTO_COTRANS = "C8";
@@ -75,3 +93,9 @@ export const NUMERO_ANEXO = "3";
 /** Q–T must be "0" for declaration periods before February 2024 (F-07 V14). */
 export const QT_EFFECTIVE_YEAR = 2024;
 export const QT_EFFECTIVE_MONTH = 2;
+
+/**
+ * Processing window: selected period + 2 prior months (3 periods total).
+ * `isInProcessingWindow` accepts month diffs where `0 <= diff <= 2`.
+ */
+export const PROCESSING_WINDOW_MONTHS_BACK = 2;

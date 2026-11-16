@@ -4,7 +4,11 @@ import { useMemo, useState, useTransition } from "react";
 import { uploadDteFiles, bulkUpdateClassification } from "@/app/actions/documents";
 import { exportAnexoComprasCsv } from "@/app/actions/export";
 import type { Company, DteDocument } from "@/types/database";
-import { DEFAULT_CLASSIFICATION, type ExportClassification } from "@/lib/dte/types";
+import {
+  DEFAULT_CLASSIFICATION,
+  isExportDteType,
+  type ExportClassification,
+} from "@/lib/dte/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,8 +71,8 @@ export function ExportWorkspace({
     [docs, companyId, year, month],
   );
 
-  const tipo03 = filtered.filter((d) => d.tipo_dte === "03");
-  const informative = filtered.filter((d) => d.tipo_dte !== "03");
+  const exportable = filtered.filter((d) => isExportDteType(d.tipo_dte));
+  const informative = filtered.filter((d) => !isExportDteType(d.tipo_dte));
   const qtZeroPeriod = year < 2024 || (year === 2024 && month < 2);
 
   function refreshFromServerDocs(next: DteDocument[]) {
@@ -123,7 +127,7 @@ export function ExportWorkspace({
       sector: bulkS,
       tipoCostoGasto: bulkT,
     };
-    const ids = tipo03.map((d) => d.id);
+    const ids = exportable.map((d) => d.id);
     startTransition(async () => {
       const result = await bulkUpdateClassification(ids, classification);
       if (result.error) {
@@ -196,7 +200,8 @@ export function ExportWorkspace({
         <CardHeader>
           <CardTitle>Periodo y empresa</CardTitle>
           <CardDescription>
-            Ventana de fechas: mes objetivo + 2 meses anteriores (Licuadora).
+            Ventana: periodo seleccionado + 2 meses anteriores (3 periodos;
+            diff 0..2).
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
@@ -244,8 +249,9 @@ export function ExportWorkspace({
         <CardHeader>
           <CardTitle>Carga multi-JSON</CardTitle>
           <CardDescription>
-            Detecta duplicados por código de generación (por empresa). Tipos
-            01/05/06/07 se guardan como informativos; solo 03 entra al CSV.
+            Detecta duplicados por código de generación (por empresa). CSV:
+            tipos 03/05/06. Informativos: 01 y 07. NC (05) resta montos; ND (06)
+            suma.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -287,10 +293,10 @@ export function ExportWorkspace({
 
       <Card>
         <CardHeader>
-          <CardTitle>Configuración Q / R / S / T (tipo 03)</CardTitle>
+          <CardTitle>Configuración Q / R / S / T (tipos 03/05/06)</CardTitle>
           <CardDescription>
             Defaults Licuadora: Q=1, R=2, S=2, T=2. U siempre = 3. Periodos
-            &lt; 2024-02 exportan Q–T como 0.
+            anteriores a febrero 2024 exportan Q–T como 0.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -323,9 +329,9 @@ export function ExportWorkspace({
           <Button
             variant="secondary"
             onClick={onApplyClassification}
-            disabled={pending || tipo03.length === 0 || qtZeroPeriod}
+            disabled={pending || exportable.length === 0 || qtZeroPeriod}
           >
-            Aplicar a {tipo03.length} filas tipo 03
+            Aplicar a {exportable.length} filas 03/05/06
           </Button>
         </CardContent>
       </Card>
@@ -335,10 +341,14 @@ export function ExportWorkspace({
           <div>
             <CardTitle>Documentos del periodo</CardTitle>
             <CardDescription>
-              {tipo03.length} exportables (03) · {informative.length} informativos
+              {exportable.length} exportables (03/05/06) ·{" "}
+              {informative.length} informativos (01/07)
             </CardDescription>
           </div>
-          <Button onClick={onExport} disabled={pending || tipo03.length === 0}>
+          <Button
+            onClick={onExport}
+            disabled={pending || exportable.length === 0}
+          >
             Descargar CSV
           </Button>
         </CardHeader>
@@ -369,7 +379,11 @@ export function ExportWorkspace({
                 filtered.map((d) => (
                   <TableRow key={d.id}>
                     <TableCell>
-                      <Badge variant={d.tipo_dte === "03" ? "default" : "secondary"}>
+                      <Badge
+                        variant={
+                          isExportDteType(d.tipo_dte) ? "default" : "secondary"
+                        }
+                      >
                         {d.tipo_dte}
                       </Badge>
                     </TableCell>

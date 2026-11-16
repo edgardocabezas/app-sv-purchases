@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseDteJsonText } from "./parse";
 import { isInProcessingWindow, monthDifference } from "./window";
 import { sumTributo } from "./tributos";
+import { isExportDteType, isInformativeDteType } from "./types";
 
 const sampleCred = {
   identificacion: {
@@ -38,14 +39,21 @@ describe("parseDteJson", () => {
     expect(result.data.totalConIva).toBe(113);
   });
 
-  it("accepts informative types 01/05/06/07", () => {
-    for (const tipo of ["01", "05", "06", "07"]) {
+  it("persists exportable 03/05/06 and informative 01/07", () => {
+    for (const tipo of ["01", "03", "05", "06", "07"]) {
       const doc = structuredClone(sampleCred);
       doc.identificacion.tipoDte = tipo;
       const result = parseDteJsonText(JSON.stringify(doc));
       expect(result.ok).toBe(true);
       if (result.ok) expect(result.data.tipoDte).toBe(tipo);
     }
+    expect(isExportDteType("03")).toBe(true);
+    expect(isExportDteType("05")).toBe(true);
+    expect(isExportDteType("06")).toBe(true);
+    expect(isExportDteType("01")).toBe(false);
+    expect(isInformativeDteType("01")).toBe(true);
+    expect(isInformativeDteType("07")).toBe(true);
+    expect(isInformativeDteType("05")).toBe(false);
   });
 
   it("rejects unsupported tipo", () => {
@@ -56,17 +64,19 @@ describe("parseDteJson", () => {
   });
 });
 
-describe("window", () => {
+describe("window (3 periods: selected + 2 prior)", () => {
   it("computes month difference across years", () => {
     expect(monthDifference("2023-12-01", 2024, 2)).toBe(2);
     expect(monthDifference("2024-02-15", 2024, 2)).toBe(0);
     expect(monthDifference("2024-03-01", 2024, 2)).toBe(-1);
   });
 
-  it("accepts 0..2 lookback", () => {
-    expect(isInProcessingWindow("2024-05-01", 2024, 5)).toBe(true);
-    expect(isInProcessingWindow("2024-03-01", 2024, 5)).toBe(true);
-    expect(isInProcessingWindow("2024-02-01", 2024, 5)).toBe(false);
+  it("accepts 0 <= diff <= 2", () => {
+    expect(isInProcessingWindow("2024-05-01", 2024, 5)).toBe(true); // 0
+    expect(isInProcessingWindow("2024-04-01", 2024, 5)).toBe(true); // 1
+    expect(isInProcessingWindow("2024-03-01", 2024, 5)).toBe(true); // 2
+    expect(isInProcessingWindow("2024-02-01", 2024, 5)).toBe(false); // 3
+    expect(isInProcessingWindow("2024-06-01", 2024, 5)).toBe(false); // future
   });
 });
 
