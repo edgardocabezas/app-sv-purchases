@@ -69,18 +69,22 @@ export async function uploadDteFiles(
     const dte = parsed.data;
     const codigo = stripDashes(dte.codigoGeneracion);
 
-    if (
-      !isInProcessingWindow(
-        dte.fecEmi,
-        year,
-        month,
-        PROCESSING_WINDOW_MONTHS_BACK,
-      )
-    ) {
+    const inWindow = isInProcessingWindow(
+      dte.fecEmi,
+      year,
+      month,
+      PROCESSING_WINDOW_MONTHS_BACK,
+    );
+    const isExportable = isExportDteType(dte.tipoDte);
+
+    // Exportables (03/05/06): window is required. Informative/other tipos
+    // outside the window are not stored either (same 3-period rule); they are
+    // reported as out_of_window so operators can re-upload under the right period.
+    if (!inWindow) {
       results.push({
         filename: file.name,
         status: "out_of_window",
-        message: `Fuera de ventana (fecEmi=${dte.fecEmi}, periodo=${year}-${String(month).padStart(2, "0")})`,
+        message: `Fuera de ventana — no guardado (fecEmi=${dte.fecEmi}, periodo=${year}-${String(month).padStart(2, "0")}; tipos 03/05/06 y demás requieren ventana de 3 periodos).`,
         tipoDte: dte.tipoDte,
         codigoGeneracion: codigo,
       });
@@ -105,7 +109,6 @@ export async function uploadDteFiles(
       continue;
     }
 
-    const isExportable = isExportDteType(dte.tipoDte);
     const classification = DEFAULT_CLASSIFICATION;
 
     const { error } = await supabase.from("dte_documents").insert({
@@ -157,8 +160,8 @@ export async function uploadDteFiles(
       filename: file.name,
       status: isExportable ? "saved" : "informative",
       message: isExportable
-        ? `Guardado (incluible en CSV, tipo ${dte.tipoDte}).`
-        : `Guardado como informativo (tipo ${dte.tipoDte}; no va al CSV).`,
+        ? `Guardado (CSV + Excel CRED, tipo ${dte.tipoDte}).`
+        : `Guardado como informativo (tipo ${dte.tipoDte}; Excel FACT/otros, no va al CSV).`,
       tipoDte: dte.tipoDte,
       codigoGeneracion: codigo,
     });

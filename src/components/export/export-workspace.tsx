@@ -1,14 +1,29 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { uploadDteFiles, bulkUpdateClassification } from "@/app/actions/documents";
-import { exportAnexoComprasCsv } from "@/app/actions/export";
+import {
+  uploadDteFiles,
+  bulkUpdateClassification,
+  updateDocumentClassification,
+} from "@/app/actions/documents";
+import {
+  exportAnexoComprasCsv,
+  exportCredControlExcel,
+  exportFactControlExcel,
+} from "@/app/actions/export";
 import type { Company, DteDocument } from "@/types/database";
 import {
   DEFAULT_CLASSIFICATION,
   isExportDteType,
   type ExportClassification,
 } from "@/lib/dte/types";
+import {
+  CLASIFICACION_OPTIONS,
+  SECTOR_OPTIONS,
+  TIPO_COSTO_GASTO_OPTIONS,
+  TIPO_OPERACION_OPTIONS,
+} from "@/lib/dte/classification-options";
+import { ClassificationSelect } from "@/components/export/classification-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +51,30 @@ type UploadResult = {
   message: string;
   tipoDte?: string;
 };
+
+function downloadBase64Excel(filename: string, base64: string) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const blob = new Blob([bytes], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function classificationFromDoc(d: DteDocument): ExportClassification {
+  return {
+    tipoOperacion: d.tipo_operacion ?? DEFAULT_CLASSIFICATION.tipoOperacion,
+    clasificacion: d.clasificacion ?? DEFAULT_CLASSIFICATION.clasificacion,
+    sector: d.sector ?? DEFAULT_CLASSIFICATION.sector,
+    tipoCostoGasto: d.tipo_costo_gasto ?? DEFAULT_CLASSIFICATION.tipoCostoGasto,
+  };
+}
 
 export function ExportWorkspace({
   companies,
@@ -75,12 +114,7 @@ export function ExportWorkspace({
   const informative = filtered.filter((d) => !isExportDteType(d.tipo_dte));
   const qtZeroPeriod = year < 2024 || (year === 2024 && month < 2);
 
-  function refreshFromServerDocs(next: DteDocument[]) {
-    setDocs(next);
-  }
-
   async function reloadDocs() {
-    // Soft reload via full page navigation keeps RLS path simple for MVP.
     window.location.reload();
   }
 
@@ -134,8 +168,10 @@ export function ExportWorkspace({
         setError(result.error);
         return;
       }
-      setInfo(`Clasificación Q–T aplicada a ${result.updated ?? ids.length} documentos.`);
-      refreshFromServerDocs(
+      setInfo(
+        `Clasificación Q–T aplicada a ${result.updated ?? ids.length} documentos.`,
+      );
+      setDocs(
         docs.map((d) =>
           ids.includes(d.id)
             ? {
@@ -151,7 +187,39 @@ export function ExportWorkspace({
     });
   }
 
-  function onExport() {
+  function onRowClassificationChange(
+    doc: DteDocument,
+    patch: Partial<ExportClassification>,
+  ) {
+    if (!isExportDteType(doc.tipo_dte) || qtZeroPeriod) return;
+    const next: ExportClassification = {
+      ...classificationFromDoc(doc),
+      ...patch,
+    };
+    setDocs((prev) =>
+      prev.map((d) =>
+        d.id === doc.id
+          ? {
+              ...d,
+              tipo_operacion: next.tipoOperacion,
+              clasificacion: next.clasificacion,
+              sector: next.sector,
+              tipo_costo_gasto: next.tipoCostoGasto,
+            }
+          : d,
+      ),
+    );
+    startTransition(async () => {
+      const result = await updateDocumentClassification(doc.id, next);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setInfo(`Q–T actualizado para ${doc.codigo_generacion.slice(0, 8)}…`);
+    });
+  }
+
+  function onExportCsv() {
     setError(null);
     setInfo(null);
     startTransition(async () => {
@@ -170,6 +238,38 @@ export function ExportWorkspace({
       a.click();
       URL.revokeObjectURL(url);
       setInfo(`CSV descargado: ${result.filename} (${result.rowCount} filas).`);
+    });
+  }
+
+  function onExportCredExcel() {
+    setError(null);
+    setInfo(null);
+    startTransition(async () => {
+      const result = await exportCredControlExcel({ companyId, year, month });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      downloadBase64Excel(result.filename, result.base64);
+      setInfo(
+        `Excel CRED descargado: ${result.filename} (${result.rowCount} filas).`,
+      );
+    });
+  }
+
+  function onExportFactExcel() {
+    setError(null);
+    setInfo(null);
+    startTransition(async () => {
+      const result = await exportFactControlExcel({ companyId, year, month });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      downloadBase64Excel(result.filename, result.base64);
+      setInfo(
+        `Excel FACT descargado: ${result.filename} (${result.rowCount} filas).`,
+      );
     });
   }
 
@@ -201,7 +301,8 @@ export function ExportWorkspace({
           <CardTitle>Periodo y empresa</CardTitle>
           <CardDescription>
             Ventana: periodo seleccionado + 2 meses anteriores (3 periodos;
-            diff 0..2).
+            diff 0..2). Fuera de ventana no se guarda (exportables ni
+            informativos).
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
@@ -249,9 +350,9 @@ export function ExportWorkspace({
         <CardHeader>
           <CardTitle>Carga multi-JSON</CardTitle>
           <CardDescription>
-            Detecta duplicados por código de generación (por empresa). CSV:
-            tipos 03/05/06. Informativos: 01 y 07. NC (05) resta montos; ND (06)
-            suma.
+            Persiste cualquier tipoDte parseable (01/03/05/06/07 y otros). CSV +
+            Excel CRED: 03/05/06. Excel FACT: 01/07/otros. Duplicados por código
+            de generación. NC (05) resta; ND (06) suma.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -295,8 +396,9 @@ export function ExportWorkspace({
         <CardHeader>
           <CardTitle>Configuración Q / R / S / T (tipos 03/05/06)</CardTitle>
           <CardDescription>
-            Defaults Licuadora: Q=1, R=2, S=2, T=2. U siempre = 3. Periodos
-            anteriores a febrero 2024 exportan Q–T como 0.
+            Catálogo F-07 V14 (código + nombre). Defaults Licuadora: Q=1, R=2,
+            S=2, T=2. U siempre = 3. Periodos &lt; febrero 2024 exportan Q–T como
+            0.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -304,26 +406,51 @@ export function ExportWorkspace({
             <Alert>
               <AlertDescription>
                 Periodo anterior a febrero 2024: al exportar, Q–T serán 0
-                automáticamente.
+                automáticamente. La asignación masiva/individual está
+                deshabilitada.
               </AlertDescription>
             </Alert>
           ) : null}
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
-              <Label>Q Tipo operación</Label>
-              <Input value={bulkQ} onChange={(e) => setBulkQ(e.target.value)} maxLength={1} />
+              <Label htmlFor="bulk-q">Q Tipo de Operación</Label>
+              <ClassificationSelect
+                id="bulk-q"
+                value={bulkQ}
+                options={TIPO_OPERACION_OPTIONS}
+                onChange={setBulkQ}
+                disabled={qtZeroPeriod}
+              />
             </div>
             <div className="space-y-2">
-              <Label>R Clasificación</Label>
-              <Input value={bulkR} onChange={(e) => setBulkR(e.target.value)} maxLength={1} />
+              <Label htmlFor="bulk-r">R Clasificación</Label>
+              <ClassificationSelect
+                id="bulk-r"
+                value={bulkR}
+                options={CLASIFICACION_OPTIONS}
+                onChange={setBulkR}
+                disabled={qtZeroPeriod}
+              />
             </div>
             <div className="space-y-2">
-              <Label>S Sector</Label>
-              <Input value={bulkS} onChange={(e) => setBulkS(e.target.value)} maxLength={1} />
+              <Label htmlFor="bulk-s">S Sector</Label>
+              <ClassificationSelect
+                id="bulk-s"
+                value={bulkS}
+                options={SECTOR_OPTIONS}
+                onChange={setBulkS}
+                disabled={qtZeroPeriod}
+              />
             </div>
             <div className="space-y-2">
-              <Label>T Tipo costo/gasto</Label>
-              <Input value={bulkT} onChange={(e) => setBulkT(e.target.value)} maxLength={1} />
+              <Label htmlFor="bulk-t">T Tipo de Costo/Gasto</Label>
+              <ClassificationSelect
+                id="bulk-t"
+                value={bulkT}
+                options={TIPO_COSTO_GASTO_OPTIONS}
+                onChange={setBulkT}
+                disabled={qtZeroPeriod}
+              />
             </div>
           </div>
           <Button
@@ -337,22 +464,38 @@ export function ExportWorkspace({
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardHeader className="space-y-3">
           <div>
             <CardTitle>Documentos del periodo</CardTitle>
             <CardDescription>
               {exportable.length} exportables (03/05/06) ·{" "}
-              {informative.length} informativos (01/07)
+              {informative.length} informativos (01/07/otros)
             </CardDescription>
           </div>
-          <Button
-            onClick={onExport}
-            disabled={pending || exportable.length === 0}
-          >
-            Descargar CSV
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={onExportCsv}
+              disabled={pending || exportable.length === 0}
+            >
+              Descargar CSV
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={onExportCredExcel}
+              disabled={pending || exportable.length === 0}
+            >
+              Excel CRED (03/05/06)
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={onExportFactExcel}
+              disabled={pending || informative.length === 0}
+            >
+              Excel FACT (01/otros)
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -376,32 +519,98 @@ export function ExportWorkspace({
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          isExportDteType(d.tipo_dte) ? "default" : "secondary"
-                        }
-                      >
-                        {d.tipo_dte}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{d.fec_emi}</TableCell>
-                    <TableCell className="max-w-[140px] truncate font-mono text-xs">
-                      {d.codigo_generacion}
-                    </TableCell>
-                    <TableCell className="max-w-[180px] truncate">
-                      {d.emisor_nombre}
-                    </TableCell>
-                    <TableCell>{Number(d.total_gravada).toFixed(2)}</TableCell>
-                    <TableCell>{Number(d.iva).toFixed(2)}</TableCell>
-                    <TableCell>{d.tipo_operacion ?? "—"}</TableCell>
-                    <TableCell>{d.clasificacion ?? "—"}</TableCell>
-                    <TableCell>{d.sector ?? "—"}</TableCell>
-                    <TableCell>{d.tipo_costo_gasto ?? "—"}</TableCell>
-                  </TableRow>
-                ))
+                filtered.map((d) => {
+                  const canEditQt =
+                    isExportDteType(d.tipo_dte) && !qtZeroPeriod;
+                  const cls = classificationFromDoc(d);
+                  return (
+                    <TableRow key={d.id}>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            isExportDteType(d.tipo_dte)
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
+                          {d.tipo_dte}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{d.fec_emi}</TableCell>
+                      <TableCell className="max-w-[140px] truncate font-mono text-xs">
+                        {d.codigo_generacion}
+                      </TableCell>
+                      <TableCell className="max-w-[180px] truncate">
+                        {d.emisor_nombre}
+                      </TableCell>
+                      <TableCell>
+                        {Number(d.total_gravada).toFixed(2)}
+                      </TableCell>
+                      <TableCell>{Number(d.iva).toFixed(2)}</TableCell>
+                      {canEditQt ? (
+                        <>
+                          <TableCell>
+                            <ClassificationSelect
+                              compact
+                              value={cls.tipoOperacion}
+                              options={TIPO_OPERACION_OPTIONS}
+                              disabled={pending}
+                              onChange={(code) =>
+                                onRowClassificationChange(d, {
+                                  tipoOperacion: code,
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <ClassificationSelect
+                              compact
+                              value={cls.clasificacion}
+                              options={CLASIFICACION_OPTIONS}
+                              disabled={pending}
+                              onChange={(code) =>
+                                onRowClassificationChange(d, {
+                                  clasificacion: code,
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <ClassificationSelect
+                              compact
+                              value={cls.sector}
+                              options={SECTOR_OPTIONS}
+                              disabled={pending}
+                              onChange={(code) =>
+                                onRowClassificationChange(d, { sector: code })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <ClassificationSelect
+                              compact
+                              value={cls.tipoCostoGasto}
+                              options={TIPO_COSTO_GASTO_OPTIONS}
+                              disabled={pending}
+                              onChange={(code) =>
+                                onRowClassificationChange(d, {
+                                  tipoCostoGasto: code,
+                                })
+                              }
+                            />
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell>{d.tipo_operacion ?? "—"}</TableCell>
+                          <TableCell>{d.clasificacion ?? "—"}</TableCell>
+                          <TableCell>{d.sector ?? "—"}</TableCell>
+                          <TableCell>{d.tipo_costo_gasto ?? "—"}</TableCell>
+                        </>
+                      )}
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

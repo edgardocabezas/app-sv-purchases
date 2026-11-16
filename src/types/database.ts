@@ -36,7 +36,8 @@ export interface Company {
 export interface DteDocument {
   id: string;
   company_id: string;
-  tipo_dte: "01" | "03" | "05" | "06" | "07";
+  /** Any DTE tipo string (01/03/05/06/07 or unexpected). */
+  tipo_dte: string;
   codigo_generacion: string;
   fec_emi: string;
   emisor_nit: string | null;
