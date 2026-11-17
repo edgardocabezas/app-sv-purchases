@@ -1,15 +1,47 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  DEFAULT_COMPRAS_DATE_PERSPECTIVE,
   MONTH_LABELS_ES,
   aggregateComprasReport,
   formatMoneyEs,
   tipoDteLabel,
   yearOptionsForDocs,
+  type ComprasDatePerspective,
   type ComprasReportDoc,
 } from "@/lib/dashboard/compras-report";
 import { cn } from "@/lib/utils";
+
+const PERSPECTIVE_STORAGE_KEY = "compras-report-perspective";
+
+const PERSPECTIVE_OPTIONS: Array<{
+  value: ComprasDatePerspective;
+  label: string;
+  hint: string;
+}> = [
+  {
+    value: "emission",
+    label: "Por fecha de factura",
+    hint: "compras reales por mes",
+  },
+  {
+    value: "reported",
+    label: "Por fecha reportada",
+    hint: "cuadrar lo reportado",
+  },
+];
+
+function readStoredPerspective(): ComprasDatePerspective {
+  if (typeof window === "undefined") return DEFAULT_COMPRAS_DATE_PERSPECTIVE;
+  try {
+    const raw = window.localStorage.getItem(PERSPECTIVE_STORAGE_KEY);
+    if (raw === "emission" || raw === "reported") return raw;
+  } catch {
+    // ignore storage failures
+  }
+  return DEFAULT_COMPRAS_DATE_PERSPECTIVE;
+}
 
 export function ComprasTotalsReport({
   docs,
@@ -19,13 +51,32 @@ export function ComprasTotalsReport({
   initialYear: number;
 }) {
   const [year, setYear] = useState(initialYear);
+  const [perspective, setPerspective] = useState<ComprasDatePerspective>(
+    DEFAULT_COMPRAS_DATE_PERSPECTIVE,
+  );
+  const [perspectiveReady, setPerspectiveReady] = useState(false);
+
+  useEffect(() => {
+    setPerspective(readStoredPerspective());
+    setPerspectiveReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!perspectiveReady) return;
+    try {
+      window.localStorage.setItem(PERSPECTIVE_STORAGE_KEY, perspective);
+    } catch {
+      // ignore storage failures
+    }
+  }, [perspective, perspectiveReady]);
+
   const yearOptions = useMemo(
-    () => yearOptionsForDocs(docs, year),
-    [docs, year],
+    () => yearOptionsForDocs(docs, year, perspective),
+    [docs, year, perspective],
   );
   const matrix = useMemo(
-    () => aggregateComprasReport(docs, year),
-    [docs, year],
+    () => aggregateComprasReport(docs, year, perspective),
+    [docs, year, perspective],
   );
 
   const maxMonthTotal = useMemo(() => {
@@ -34,6 +85,7 @@ export function ComprasTotalsReport({
   }, [matrix.byMonth]);
 
   const isEmpty = matrix.documentCount === 0;
+  const isReported = perspective === "reported";
 
   return (
     <section
@@ -59,33 +111,71 @@ export function ComprasTotalsReport({
             Montos de compras
           </h2>
           <p className="max-w-2xl text-sm leading-relaxed text-brand-muted">
-            Totales netos por tipo DTE y mes de emisión. Misma base que el
-            anexo F-07: gravada, IVA y total con IVA; la nota de crédito (05)
-            resta y la de débito (06) suma.
+            {isReported
+              ? "Totales netos por tipo DTE y mes del periodo reportado (F-07). Misma base que el anexo: gravada, IVA y total con IVA; la nota de crédito (05) resta y la de débito (06) suma."
+              : "Totales netos por tipo DTE y mes de emisión. Misma base que el anexo F-07: gravada, IVA y total con IVA; la nota de crédito (05) resta y la de débito (06) suma."}
           </p>
         </div>
-        <div className="flex shrink-0 flex-col gap-1.5 sm:items-end">
-          <label htmlFor="compras-report-year" className="brand-field-label">
-            Año
-          </label>
-          <select
-            id="compras-report-year"
-            className="brand-select w-[7.5rem]"
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-          >
-            {yearOptions.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
+        <div className="flex shrink-0 flex-col gap-3 sm:items-end">
+          <div className="flex flex-col gap-1.5 sm:items-end">
+            <span id="compras-report-perspective-label" className="brand-field-label">
+              Perspectiva
+            </span>
+            <div
+              role="radiogroup"
+              aria-labelledby="compras-report-perspective-label"
+              className="inline-grid grid-cols-2 overflow-hidden rounded-lg border border-brand-border bg-white/80 shadow-sm"
+            >
+              {PERSPECTIVE_OPTIONS.map((option) => {
+                const selected = perspective === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    className={cn(
+                      "min-w-[9.5rem] px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/30 focus-visible:ring-inset",
+                      selected
+                        ? "bg-brand-accent-soft/80 text-brand-ink"
+                        : "text-brand-muted hover:bg-brand-accent-soft/35 hover:text-brand-ink",
+                    )}
+                    onClick={() => setPerspective(option.value)}
+                  >
+                    <span className="block text-xs font-medium leading-tight">
+                      {option.label}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] leading-tight text-brand-muted">
+                      {option.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5 sm:items-end">
+            <label htmlFor="compras-report-year" className="brand-field-label">
+              Año
+            </label>
+            <select
+              id="compras-report-year"
+              className="brand-select w-[7.5rem]"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+            >
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       <div className="relative space-y-6 px-5 py-5">
         <div
-          key={`summary-${year}`}
+          key={`summary-${year}-${perspective}`}
           className="compras-report-fade grid gap-4 sm:grid-cols-3"
         >
           <SummaryStat
@@ -96,7 +186,11 @@ export function ComprasTotalsReport({
           <SummaryStat
             label="Documentos"
             value={String(matrix.documentCount)}
-            hint={`Emitidos en ${year}`}
+            hint={
+              isReported
+                ? `Reportados en ${year}`
+                : `Emitidos en ${year}`
+            }
           />
           <SummaryStat
             label="Gravada · IVA"
@@ -107,22 +201,22 @@ export function ComprasTotalsReport({
 
         {isEmpty ? (
           <div
-            key={`empty-${year}`}
+            key={`empty-${year}-${perspective}`}
             className="compras-report-fade rounded-xl border border-dashed border-brand-border bg-white/50 px-5 py-10 text-center"
           >
             <p className="font-heading text-lg font-semibold text-brand-ink">
               Sin documentos en {year}
             </p>
             <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-brand-muted">
-              No hay DTE cargados con fecha de emisión en este año para las
-              empresas de tu espacio. Sube JSON en Carga / Export o elige otro
-              año.
+              {isReported
+                ? "No hay DTE cargados con periodo reportado en este año para las empresas de tu espacio. Sube JSON en Carga / Export o elige otra perspectiva u otro año."
+                : "No hay DTE cargados con fecha de emisión en este año para las empresas de tu espacio. Sube JSON en Carga / Export o elige otro año."}
             </p>
           </div>
         ) : (
           <>
             <div
-              key={`bars-${year}`}
+              key={`bars-${year}-${perspective}`}
               className="compras-report-fade space-y-3"
             >
               <div className="flex items-end justify-between gap-3">
@@ -172,7 +266,7 @@ export function ComprasTotalsReport({
             </div>
 
             <div
-              key={`matrix-${year}`}
+              key={`matrix-${year}-${perspective}`}
               className="compras-report-fade overflow-x-auto rounded-xl border border-brand-border bg-white/65"
             >
               <table className="w-full min-w-[52rem] border-collapse text-sm">

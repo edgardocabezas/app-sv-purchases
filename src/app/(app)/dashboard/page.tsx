@@ -59,13 +59,17 @@ export default async function DashboardPage() {
     companyIds.length > 0
       ? await supabase
           .from("dte_documents")
-          .select("tipo_dte, fec_emi, total_gravada, iva, total_con_iva")
+          .select(
+            "tipo_dte, fec_emi, period_year, period_month, total_gravada, iva, total_con_iva",
+          )
           .in("company_id", companyIds)
           .order("fec_emi", { ascending: true })
       : {
           data: [] as Array<{
             tipo_dte: string;
             fec_emi: string;
+            period_year: number | null;
+            period_month: number | null;
             total_gravada: number;
             iva: number;
             total_con_iva: number;
@@ -75,6 +79,8 @@ export default async function DashboardPage() {
   const reportDocs: ComprasReportDoc[] = (reportRows ?? []).map((row) => ({
     tipo_dte: row.tipo_dte,
     fec_emi: row.fec_emi,
+    period_year: row.period_year,
+    period_month: row.period_month,
     total_gravada: Number(row.total_gravada) || 0,
     iva: Number(row.iva) || 0,
     total_con_iva: Number(row.total_con_iva) || 0,

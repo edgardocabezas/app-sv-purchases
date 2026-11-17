@@ -25,9 +25,23 @@ export const TIPO_DTE_LABELS: Record<string, string> = {
   "07": "Comprobante de retención",
 };
 
+/**
+ * How monthly buckets are chosen for the dashboard report.
+ * - `emission`: fecha de factura (`fec_emi`) — compras reales por mes
+ * - `reported`: periodo F-07 de carga/export (`period_year`/`period_month`)
+ */
+export type ComprasDatePerspective = "emission" | "reported";
+
+export const DEFAULT_COMPRAS_DATE_PERSPECTIVE: ComprasDatePerspective =
+  "emission";
+
 export type ComprasReportDoc = {
   tipo_dte: string;
   fec_emi: string;
+  /** Reporting period year set at upload / export selection. */
+  period_year: number | null;
+  /** Reporting period month (1–12) set at upload / export selection. */
+  period_month: number | null;
   total_gravada: number;
   iva: number;
   total_con_iva: number;
@@ -42,6 +56,7 @@ export type MoneyBucket = {
 
 export type ComprasReportMatrix = {
   year: number;
+  perspective: ComprasDatePerspective;
   tipos: string[];
   /** cells[tipo][monthIndex 0–11] */
   cells: Record<string, MoneyBucket[]>;
@@ -76,6 +91,27 @@ function parseEmissionMonth(fecEmi: string): { year: number; month: number } | n
   return { year, month };
 }
 
+function parseReportedMonth(
+  doc: Pick<ComprasReportDoc, "period_year" | "period_month">,
+): { year: number; month: number } | null {
+  const year = doc.period_year;
+  const month = doc.period_month;
+  if (year == null || month == null) return null;
+  if (!year || month < 1 || month > 12) return null;
+  return { year, month };
+}
+
+/** Resolve year/month bucket for a doc under the chosen perspective. */
+export function resolveComprasDocMonth(
+  doc: Pick<ComprasReportDoc, "fec_emi" | "period_year" | "period_month">,
+  perspective: ComprasDatePerspective,
+): { year: number; month: number } | null {
+  if (perspective === "reported") {
+    return parseReportedMonth(doc);
+  }
+  return parseEmissionMonth(doc.fec_emi);
+}
+
 /** Prefer known tipo order, then any unexpected codes alphabetically. */
 export function sortTipoDteCodes(tipos: Iterable<string>): string[] {
   const knownOrder = ["01", "03", "05", "06", "07"];
@@ -95,18 +131,20 @@ export function tipoDteLabel(tipo: string): string {
 }
 
 /**
- * Aggregate purchase amounts for a calendar year by tipo DTE × emission month.
+ * Aggregate purchase amounts for a calendar year by tipo DTE × month.
+ * Month basis follows `perspective` (emission date vs F-07 reporting period).
  * Uses the same signed F-07 money rules as CSV build (05 resta, 03/06 suman).
  */
 export function aggregateComprasReport(
   docs: readonly ComprasReportDoc[],
   year: number,
+  perspective: ComprasDatePerspective = DEFAULT_COMPRAS_DATE_PERSPECTIVE,
 ): ComprasReportMatrix {
   const yearDocs: Array<ComprasReportDoc & { month: number }> = [];
   const tipoSet = new Set<string>();
 
   for (const doc of docs) {
-    const parsed = parseEmissionMonth(doc.fec_emi);
+    const parsed = resolveComprasDocMonth(doc, perspective);
     if (!parsed || parsed.year !== year) continue;
     yearDocs.push({ ...doc, month: parsed.month });
     tipoSet.add(doc.tipo_dte);
@@ -134,6 +172,7 @@ export function aggregateComprasReport(
 
   return {
     year,
+    perspective,
     tipos,
     cells,
     byMonth,
@@ -143,10 +182,14 @@ export function aggregateComprasReport(
   };
 }
 
-/** Years present in docs (by fec_emi) plus a small recent window for the selector. */
+/** Years present in docs (by active perspective) plus a small recent window. */
 export function yearOptionsForDocs(
-  docs: readonly Pick<ComprasReportDoc, "fec_emi">[],
+  docs: readonly Pick<
+    ComprasReportDoc,
+    "fec_emi" | "period_year" | "period_month"
+  >[],
   selectedYear: number,
+  perspective: ComprasDatePerspective = DEFAULT_COMPRAS_DATE_PERSPECTIVE,
   now: Date = new Date(),
 ): number[] {
   const current = now.getFullYear();
@@ -154,7 +197,7 @@ export function yearOptionsForDocs(
   for (let y = current; y >= current - 5; y -= 1) years.add(y);
   years.add(selectedYear);
   for (const doc of docs) {
-    const parsed = parseEmissionMonth(doc.fec_emi);
+    const parsed = resolveComprasDocMonth(doc, perspective);
     if (parsed) years.add(parsed.year);
   }
   return Array.from(years).sort((a, b) => b - a);
