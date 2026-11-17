@@ -110,6 +110,30 @@ function Field({
 
 const selectClass = "brand-select";
 
+/** Spanish calendar month labels (1–12). */
+const MONTH_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
+  { value: 1, label: "Enero" },
+  { value: 2, label: "Febrero" },
+  { value: 3, label: "Marzo" },
+  { value: 4, label: "Abril" },
+  { value: 5, label: "Mayo" },
+  { value: 6, label: "Junio" },
+  { value: 7, label: "Julio" },
+  { value: 8, label: "Agosto" },
+  { value: 9, label: "Septiembre" },
+  { value: 10, label: "Octubre" },
+  { value: 11, label: "Noviembre" },
+  { value: 12, label: "Diciembre" },
+];
+
+function yearOptionsFor(selectedYear: number): number[] {
+  const current = new Date().getFullYear();
+  const years = new Set<number>();
+  for (let y = current; y >= current - 5; y -= 1) years.add(y);
+  years.add(selectedYear);
+  return Array.from(years).sort((a, b) => b - a);
+}
+
 export function ExportWorkspace({
   companies,
   initialDocs,
@@ -412,6 +436,9 @@ export function ExportWorkspace({
   }
 
   const periodLabel = `${year}-${String(month).padStart(2, "0")}`;
+  const monthLabel =
+    MONTH_OPTIONS.find((m) => m.value === month)?.label ?? String(month);
+  const yearOptions = yearOptionsFor(year);
 
   return (
     <div className="relative space-y-6">
@@ -447,32 +474,40 @@ export function ExportWorkspace({
             </select>
           </Field>
           <Field id="year" label="Año">
-            <Input
+            <select
               id="year"
-              type="number"
-              min={2000}
-              max={2100}
+              className={selectClass}
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="h-9 rounded-lg border-brand-border bg-white/80 shadow-sm"
-            />
+            >
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field id="month" label="Mes">
-            <Input
+            <select
               id="month"
-              type="number"
-              min={1}
-              max={12}
+              className={selectClass}
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
-              className="h-9 rounded-lg border-brand-border bg-white/80 shadow-sm"
-            />
+            >
+              {MONTH_OPTIONS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
           </Field>
         </div>
         <p className="mt-4 text-xs text-brand-muted">
           Periodo activo:{" "}
-          <span className="font-medium text-brand-ink">{periodLabel}</span> ·{" "}
-          {periodDocs.length} documentos cargados
+          <span className="font-medium text-brand-ink">
+            {monthLabel} {year}
+          </span>{" "}
+          ({periodLabel}) · {periodDocs.length} documentos cargados
         </p>
       </BrandPanel>
 
