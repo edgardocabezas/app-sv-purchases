@@ -26,6 +26,7 @@ import {
   optionsForTipoOperacion,
 } from "@/lib/dte/qrt-cascade";
 import { previousPeriod } from "@/lib/period";
+import { sortTipoDteCodes, tipoDteLabel } from "@/lib/dashboard/compras-report";
 import { ClassificationSelect } from "@/components/export/classification-select";
 import { BrandPanel } from "@/components/brand-panel";
 import { Button } from "@/components/ui/button";
@@ -171,10 +172,10 @@ export function ExportWorkspace({
     [docs, companyId, year, month],
   );
 
-  const tipoOptions = useMemo(() => {
-    const set = new Set(periodDocs.map((d) => d.tipo_dte));
-    return Array.from(set).sort();
-  }, [periodDocs]);
+  const tipoOptions = useMemo(
+    () => sortTipoDteCodes(periodDocs.map((d) => d.tipo_dte)),
+    [periodDocs],
+  );
 
   const filtered = useMemo(() => {
     let rows = periodDocs;
@@ -654,14 +655,14 @@ export function ExportWorkspace({
           <Field id="filter-tipo" label="Tipo de documento">
             <select
               id="filter-tipo"
-              className={`${selectClass} min-w-[8rem]`}
+              className={`${selectClass} min-w-[14rem]`}
               value={tipoFilter}
               onChange={(e) => setTipoFilter(e.target.value)}
             >
               <option value="all">Todos</option>
               {tipoOptions.map((t) => (
                 <option key={t} value={t}>
-                  {t}
+                  {tipoDteLabel(t)} ({t})
                 </option>
               ))}
             </select>
