@@ -5,7 +5,9 @@ import { pickPrimaryWorkspace } from "@/lib/workspace/primary";
 import { InviteMemberForm } from "@/components/workspace/invite-member-form";
 import { PageHeader } from "@/components/page-header";
 import { BrandPanel } from "@/components/brand-panel";
+import { ComprasTotalsReport } from "@/components/dashboard/compras-totals-report";
 import { Button } from "@/components/ui/button";
+import type { ComprasReportDoc } from "@/lib/dashboard/compras-report";
 import type { WorkspaceInvite, WorkspaceRole } from "@/types/database";
 
 export default async function DashboardPage() {
@@ -47,9 +49,38 @@ export default async function DashboardPage() {
           .in("workspace_id", workspaceIds)
       : { data: [] as { id: string; name: string; workspace_id: string }[] };
 
+  const companyIds = (companies ?? []).map((c) => c.id);
+
   const { count: dteCount } = await supabase
     .from("dte_documents")
     .select("id", { count: "exact", head: true });
+
+  const { data: reportRows } =
+    companyIds.length > 0
+      ? await supabase
+          .from("dte_documents")
+          .select("tipo_dte, fec_emi, total_gravada, iva, total_con_iva")
+          .in("company_id", companyIds)
+          .order("fec_emi", { ascending: true })
+      : {
+          data: [] as Array<{
+            tipo_dte: string;
+            fec_emi: string;
+            total_gravada: number;
+            iva: number;
+            total_con_iva: number;
+          }>,
+        };
+
+  const reportDocs: ComprasReportDoc[] = (reportRows ?? []).map((row) => ({
+    tipo_dte: row.tipo_dte,
+    fec_emi: row.fec_emi,
+    total_gravada: Number(row.total_gravada) || 0,
+    iva: Number(row.iva) || 0,
+    total_con_iva: Number(row.total_con_iva) || 0,
+  }));
+
+  const reportYear = new Date().getFullYear();
 
   const { data: pendingInvites } =
     canInvite && primary
@@ -86,6 +117,8 @@ export default async function DashboardPage() {
           </div>
         ))}
       </div>
+
+      <ComprasTotalsReport docs={reportDocs} initialYear={reportYear} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <BrandPanel
